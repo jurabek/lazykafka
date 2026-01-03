@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"errors"
+
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
@@ -24,27 +26,31 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 
 	for _, view := range h.layout.views {
 		vm := view.GetViewModel()
-		opts := types.KeybindingsOpts{
-			GetKey: func(key string) types.Key {
-				return key
-			},
-			Config: types.KeybindingConfig{},
-		}
-		bindings := vm.GetKeybindings(opts)
+		viewName := vm.GetName()
+		bindings := vm.GetCommandBindings()
 
-		for _, binding := range bindings {
-			wrappedHandler := h.wrapHandler(binding.Handler)
-			if err := g.SetKeybinding(
-				binding.ViewName,
-				binding.Key,
-				binding.Modifier,
-				wrappedHandler,
-			); err != nil {
-				return err
-			}
+		if err := h.bindViewCommands(g, viewName, bindings); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func (h *keyBindingHandler) bindViewCommands(g *gocui.Gui, viewName string, bindings []*types.CommandBinding) error {
+	for _, binding := range bindings {
+		b := binding
+		if err := g.SetKeybinding(viewName, b.Key, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+			err := b.Cmd.Execute()
+			if err != nil && errors.Is(err, types.ErrNoSelection) {
+				return nil
+			}
+			return err
+		}); err != nil {
+
+			return err
+		}
+	}
 	return nil
 }
 

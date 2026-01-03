@@ -12,6 +12,7 @@ type View interface {
 	GetViewModel() viewmodel.BaseViewModel
 	GetBounds() (x0, y0, x1, y1 int)
 	SetBounds(x0, y0, x1, y1 int)
+	StartListening(g *gocui.Gui)
 }
 
 type BaseView struct {

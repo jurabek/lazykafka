@@ -59,3 +59,16 @@ func (v *TopicsView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 func (v *TopicsView) Destroy(g *gocui.Gui) error {
 	return g.DeleteView(v.viewModel.GetName())
 }
+
+func (v *TopicsView) StartListening(g *gocui.Gui) {
+	for _, binding := range v.viewModel.GetCommandBindings() {
+		cmd := binding.Cmd
+		go func() {
+			for range cmd.NotifyChannel() {
+				g.Update(func(gui *gocui.Gui) error {
+					return nil
+				})
+			}
+		}()
+	}
+}

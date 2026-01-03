@@ -59,3 +59,27 @@ func (v *ConsumerGroupsView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 func (v *ConsumerGroupsView) Destroy(g *gocui.Gui) error {
 	return g.DeleteView(v.viewModel.GetName())
 }
+
+func (v *ConsumerGroupsView) StartListening(g *gocui.Gui) {
+	go func() {
+		for range v.viewModel.NotifyChannel() {
+			g.Update(func(gui *gocui.Gui) error {
+				view, err := g.View(v.viewModel.GetName())
+				if err != nil {
+					return err
+				}
+				return v.Render(g, view)
+			})
+		}
+	}()
+	for _, binding := range v.viewModel.GetCommandBindings() {
+		cmd := binding.Cmd
+		go func() {
+			for range cmd.NotifyChannel() {
+				g.Update(func(gui *gocui.Gui) error {
+					return nil
+				})
+			}
+		}()
+	}
+}

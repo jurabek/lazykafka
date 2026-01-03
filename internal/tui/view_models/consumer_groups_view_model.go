@@ -10,18 +10,38 @@ import (
 )
 
 type ConsumerGroupsViewModel struct {
-	mu             sync.RWMutex
-	consumerGroups []models.ConsumerGroup
-	selectedIndex  int
-	gui            *gocui.Gui
+	mu              sync.RWMutex
+	consumerGroups  []models.ConsumerGroup
+	selectedIndex   int
+	notifyCh        chan struct{}
+	commandBindings []*types.CommandBinding
 }
 
-func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup, gui *gocui.Gui) *ConsumerGroupsViewModel {
-	return &ConsumerGroupsViewModel{
+func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup) *ConsumerGroupsViewModel {
+	vm := &ConsumerGroupsViewModel{
 		consumerGroups: consumerGroups,
-		gui:            gui,
 		selectedIndex:  0,
+		notifyCh:       make(chan struct{}),
 	}
+	moveUp := types.NewCommand(vm.MoveUp)
+	moveDown := types.NewCommand(vm.MoveDown)
+
+	commandBindings := []*types.CommandBinding{
+		{Key: 'k', Cmd: moveUp},
+		{Key: 'j', Cmd: moveDown},
+		{Key: gocui.KeyArrowUp, Cmd: moveUp},
+		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+	}
+	vm.commandBindings = commandBindings
+	return vm
+}
+
+func (vm *ConsumerGroupsViewModel) NotifyChannel() <-chan struct{} {
+	return vm.notifyCh
+}
+
+func (vm *ConsumerGroupsViewModel) Notify() {
+	vm.notifyCh <- struct{}{}
 }
 
 func (vm *ConsumerGroupsViewModel) GetSelectedIndex() int {
@@ -44,57 +64,28 @@ func (vm *ConsumerGroupsViewModel) GetItemCount() int {
 	return len(vm.consumerGroups)
 }
 
-func (vm *ConsumerGroupsViewModel) MoveUp() bool {
+func (vm *ConsumerGroupsViewModel) MoveUp() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *ConsumerGroupsViewModel) MoveDown() bool {
+func (vm *ConsumerGroupsViewModel) MoveDown() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.consumerGroups)-1 {
 		vm.selectedIndex++
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *ConsumerGroupsViewModel) GetKeybindings(opts types.KeybindingsOpts) []*types.Binding {
-	return []*types.Binding{
-		{
-			ViewName:    vm.GetName(),
-			Key:         'k',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         'j',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowUp,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowDown,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-	}
+func (vm *ConsumerGroupsViewModel) GetCommandBindings() []*types.CommandBinding {
+	return vm.commandBindings
 }
 
 func (vm *ConsumerGroupsViewModel) GetDisplayItems() []string {
@@ -134,22 +125,4 @@ func (vm *ConsumerGroupsViewModel) LoadConsumerGroups(consumerGroups []models.Co
 	if vm.selectedIndex >= len(consumerGroups) {
 		vm.selectedIndex = 0
 	}
-}
-
-func (vm *ConsumerGroupsViewModel) moveUp() error {
-	if vm.MoveUp() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
-}
-
-func (vm *ConsumerGroupsViewModel) moveDown() error {
-	if vm.MoveDown() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
 }

@@ -21,18 +21,24 @@ func NewLayout(g *gocui.Gui) *Layout {
 	consumerGroups := models.MockConsumerGroups()
 	schemaRegistries := models.MockSchemaRegistries()
 
-	brokersVM := viewmodel.NewBrokersViewModel(brokers, g)
-	topicsVM := viewmodel.NewTopicsViewModel(topics, g)
-	cgVM := viewmodel.NewConsumerGroupsViewModel(consumerGroups, g)
-	srVM := viewmodel.NewSchemaRegistryViewModel(schemaRegistries, g)
+	brokersVM := viewmodel.NewBrokersViewModel(brokers)
+	topicsVM := viewmodel.NewTopicsViewModel(topics)
+	cgVM := viewmodel.NewConsumerGroupsViewModel(consumerGroups)
+	srVM := viewmodel.NewSchemaRegistryViewModel(schemaRegistries)
 
 	brokersView := views.NewBrokersView(brokersVM)
 	topicsView := views.NewTopicsView(topicsVM)
 	cgView := views.NewConsumerGroupsView(cgVM)
 	srView := views.NewSchemaRegistryView(srVM)
 
+	viewList := []views.View{brokersView, topicsView, cgView, srView}
+
+	for _, v := range viewList {
+		v.StartListening(g)
+	}
+
 	return &Layout{
-		views:           []views.View{brokersView, topicsView, cgView, srView},
+		views:           viewList,
 		activeViewIndex: 0,
 		gui:             g,
 	}

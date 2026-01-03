@@ -10,18 +10,41 @@ import (
 )
 
 type TopicsViewModel struct {
-	mu            sync.RWMutex
-	topics        []models.Topic
-	selectedIndex int
-	gui           *gocui.Gui
+	mu              sync.RWMutex
+	topics          []models.Topic
+	selectedIndex   int
+	notifyCh        chan struct{}
+	commandBindings []*types.CommandBinding
 }
 
-func NewTopicsViewModel(topics []models.Topic, gui *gocui.Gui) *TopicsViewModel {
-	return &TopicsViewModel{
+func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
+	vm := &TopicsViewModel{
 		topics:        topics,
-		gui:           gui,
 		selectedIndex: 0,
+		notifyCh:      make(chan struct{}),
 	}
+
+	moveUp := types.NewCommand(vm.MoveUp)
+	moveDown := types.NewCommand(vm.MoveDown)
+
+	commandBindings := []*types.CommandBinding{
+		{Key: 'k', Cmd: moveUp},
+		{Key: 'j', Cmd: moveDown},
+		{Key: gocui.KeyArrowUp, Cmd: moveUp},
+		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+	}
+
+	vm.commandBindings = commandBindings
+	return vm
+
+}
+
+func (vm *TopicsViewModel) NotifyChannel() <-chan struct{} {
+	return vm.notifyCh
+}
+
+func (vm *TopicsViewModel) Notify() {
+	vm.notifyCh <- struct{}{}
 }
 
 func (vm *TopicsViewModel) GetSelectedIndex() int {
@@ -44,57 +67,28 @@ func (vm *TopicsViewModel) GetItemCount() int {
 	return len(vm.topics)
 }
 
-func (vm *TopicsViewModel) MoveUp() bool {
+func (vm *TopicsViewModel) MoveUp() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *TopicsViewModel) MoveDown() bool {
+func (vm *TopicsViewModel) MoveDown() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.topics)-1 {
 		vm.selectedIndex++
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *TopicsViewModel) GetKeybindings(opts types.KeybindingsOpts) []*types.Binding {
-	return []*types.Binding{
-		{
-			ViewName:    vm.GetName(),
-			Key:         'k',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         'j',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowUp,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowDown,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-	}
+func (vm *TopicsViewModel) GetCommandBindings() []*types.CommandBinding {
+	return vm.commandBindings
 }
 
 func (vm *TopicsViewModel) GetDisplayItems() []string {
@@ -134,22 +128,4 @@ func (vm *TopicsViewModel) LoadTopics(topics []models.Topic) {
 	if vm.selectedIndex >= len(topics) {
 		vm.selectedIndex = 0
 	}
-}
-
-func (vm *TopicsViewModel) moveUp() error {
-	if vm.MoveUp() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
-}
-
-func (vm *TopicsViewModel) moveDown() error {
-	if vm.MoveDown() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
 }

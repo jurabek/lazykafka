@@ -10,18 +10,29 @@ import (
 )
 
 type BrokersViewModel struct {
-	mu            sync.RWMutex
-	brokers       []models.Broker
-	selectedIndex int
-	gui           *gocui.Gui
+	mu              sync.RWMutex
+	brokers         []models.Broker
+	selectedIndex   int
+	notifyCh        chan struct{}
+	commandBindings []*types.CommandBinding
 }
 
-func NewBrokersViewModel(brokers []models.Broker, gui *gocui.Gui) *BrokersViewModel {
-	return &BrokersViewModel{
+func NewBrokersViewModel(brokers []models.Broker) *BrokersViewModel {
+	vm := &BrokersViewModel{
 		brokers:       brokers,
-		gui:           gui,
 		selectedIndex: 0,
+		notifyCh:      make(chan struct{}),
 	}
+	vm.initCommandBindings()
+	return vm
+}
+
+func (vm *BrokersViewModel) NotifyChannel() <-chan struct{} {
+	return vm.notifyCh
+}
+
+func (vm *BrokersViewModel) Notify() {
+	vm.notifyCh <- struct{}{}
 }
 
 func (vm *BrokersViewModel) GetSelectedIndex() int {
@@ -44,57 +55,40 @@ func (vm *BrokersViewModel) GetItemCount() int {
 	return len(vm.brokers)
 }
 
-func (vm *BrokersViewModel) MoveUp() bool {
+func (vm *BrokersViewModel) MoveUp() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *BrokersViewModel) MoveDown() bool {
+func (vm *BrokersViewModel) MoveDown() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.brokers)-1 {
 		vm.selectedIndex++
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *BrokersViewModel) GetKeybindings(opts types.KeybindingsOpts) []*types.Binding {
-	return []*types.Binding{
-		{
-			ViewName:    vm.GetName(),
-			Key:         'k',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         'j',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowUp,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowDown,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
+func (vm *BrokersViewModel) initCommandBindings() {
+	moveUp := types.NewCommand(vm.MoveUp)
+	moveDown := types.NewCommand(vm.MoveDown)
+
+	vm.commandBindings = []*types.CommandBinding{
+		{Key: 'k', Cmd: moveUp},
+		{Key: 'j', Cmd: moveDown},
+		{Key: gocui.KeyArrowUp, Cmd: moveUp},
+		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 	}
+}
+
+func (vm *BrokersViewModel) GetCommandBindings() []*types.CommandBinding {
+	return vm.commandBindings
 }
 
 func (vm *BrokersViewModel) GetDisplayItems() []string {
@@ -134,22 +128,4 @@ func (vm *BrokersViewModel) LoadBrokers(brokers []models.Broker) {
 	if vm.selectedIndex >= len(brokers) {
 		vm.selectedIndex = 0
 	}
-}
-
-func (vm *BrokersViewModel) moveUp() error {
-	if vm.MoveUp() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
-}
-
-func (vm *BrokersViewModel) moveDown() error {
-	if vm.MoveDown() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
 }

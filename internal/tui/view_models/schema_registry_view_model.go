@@ -13,15 +13,37 @@ type SchemaRegistryViewModel struct {
 	mu               sync.RWMutex
 	schemaRegistries []models.SchemaRegistry
 	selectedIndex    int
-	gui              *gocui.Gui
+	notifyCh         chan struct{}
+	commandBindings  []*types.CommandBinding
 }
 
-func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry, gui *gocui.Gui) *SchemaRegistryViewModel {
-	return &SchemaRegistryViewModel{
+func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry) *SchemaRegistryViewModel {
+	vm := &SchemaRegistryViewModel{
 		schemaRegistries: schemaRegistries,
-		gui:              gui,
 		selectedIndex:    0,
+		notifyCh:         make(chan struct{}),
 	}
+
+	moveUp := types.NewCommand(vm.MoveUp)
+	moveDown := types.NewCommand(vm.MoveDown)
+
+	commandBindings := []*types.CommandBinding{
+		{Key: 'k', Cmd: moveUp},
+		{Key: 'j', Cmd: moveDown},
+		{Key: gocui.KeyArrowUp, Cmd: moveUp},
+		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+	}
+	vm.commandBindings = commandBindings
+
+	return vm
+}
+
+func (vm *SchemaRegistryViewModel) NotifyChannel() <-chan struct{} {
+	return vm.notifyCh
+}
+
+func (vm *SchemaRegistryViewModel) Notify() {
+	vm.notifyCh <- struct{}{}
 }
 
 func (vm *SchemaRegistryViewModel) GetSelectedIndex() int {
@@ -44,57 +66,28 @@ func (vm *SchemaRegistryViewModel) GetItemCount() int {
 	return len(vm.schemaRegistries)
 }
 
-func (vm *SchemaRegistryViewModel) MoveUp() bool {
+func (vm *SchemaRegistryViewModel) MoveUp() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *SchemaRegistryViewModel) MoveDown() bool {
+func (vm *SchemaRegistryViewModel) MoveDown() error {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.schemaRegistries)-1 {
 		vm.selectedIndex++
-		return true
+		return nil
 	}
-	return false
+	return types.ErrNoSelection
 }
 
-func (vm *SchemaRegistryViewModel) GetKeybindings(opts types.KeybindingsOpts) []*types.Binding {
-	return []*types.Binding{
-		{
-			ViewName:    vm.GetName(),
-			Key:         'k',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         'j',
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowUp,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveUp,
-			Description: "move up",
-		},
-		{
-			ViewName:    vm.GetName(),
-			Key:         gocui.KeyArrowDown,
-			Modifier:    gocui.ModNone,
-			Handler:     vm.moveDown,
-			Description: "move down",
-		},
-	}
+func (vm *SchemaRegistryViewModel) GetCommandBindings() []*types.CommandBinding {
+	return vm.commandBindings
 }
 
 func (vm *SchemaRegistryViewModel) GetDisplayItems() []string {
@@ -134,22 +127,4 @@ func (vm *SchemaRegistryViewModel) LoadSchemaRegistries(schemaRegistries []model
 	if vm.selectedIndex >= len(schemaRegistries) {
 		vm.selectedIndex = 0
 	}
-}
-
-func (vm *SchemaRegistryViewModel) moveUp() error {
-	if vm.MoveUp() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
-}
-
-func (vm *SchemaRegistryViewModel) moveDown() error {
-	if vm.MoveDown() {
-		vm.gui.Update(func(g *gocui.Gui) error {
-			return nil
-		})
-	}
-	return nil
 }
