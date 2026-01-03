@@ -24,7 +24,7 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 		return err
 	}
 
-	for _, view := range h.layout.views {
+	for _, view := range h.layout.sidebarViews {
 		vm := view.GetViewModel()
 		viewName := vm.GetName()
 		bindings := vm.GetCommandBindings()

@@ -17,6 +17,7 @@ type MainViewModel struct {
 	topicsVM         *TopicsViewModel
 	consumerGroupsVM *ConsumerGroupsViewModel
 	schemaRegistryVM *SchemaRegistryViewModel
+	topicDetailVM    *TopicDetailViewModel
 
 	notifyCh chan types.ChangeEvent
 	ctx      context.Context
@@ -34,11 +35,13 @@ func NewMainViewModel(ctx context.Context) *MainViewModel {
 		topicsVM:         NewTopicsViewModel(topics),
 		consumerGroupsVM: NewConsumerGroupsViewModel(consumerGroups),
 		schemaRegistryVM: NewSchemaRegistryViewModel(schemaRegistries),
+		topicDetailVM:    NewTopicDetailViewModel(),
 		notifyCh:         make(chan types.ChangeEvent),
 		ctx:              ctx,
 	}
 
 	vm.startBrokerSubscription()
+	vm.startTopicSubscription()
 
 	// Trigger initial load for the first broker (index 0)
 	if broker := vm.brokersVM.GetSelectedBroker(); broker != nil {
@@ -63,6 +66,22 @@ func (vm *MainViewModel) startBrokerSubscription() {
 			case <-vm.ctx.Done():
 				return
 			}
+		}
+	}()
+}
+
+// startTopicSubscription listens to TopicsViewModel selection changes
+func (vm *MainViewModel) startTopicSubscription() {
+	go func() {
+		for _, binding := range vm.topicsVM.GetCommandBindings() {
+			cmd := binding.Cmd
+			go func() {
+				for range cmd.NotifyChannel() {
+					if topic := vm.topicsVM.GetSelectedTopic(); topic != nil {
+						vm.topicDetailVM.SetTopic(topic)
+					}
+				}
+			}()
 		}
 	}()
 }
@@ -96,4 +115,8 @@ func (vm *MainViewModel) ConsumerGroupsVM() *ConsumerGroupsViewModel {
 
 func (vm *MainViewModel) SchemaRegistryVM() *SchemaRegistryViewModel {
 	return vm.schemaRegistryVM
+}
+
+func (vm *MainViewModel) TopicDetailVM() *TopicDetailViewModel {
+	return vm.topicDetailVM
 }

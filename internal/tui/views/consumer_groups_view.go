@@ -19,19 +19,23 @@ func NewConsumerGroupsView(vm *viewmodel.ConsumerGroupsViewModel) *ConsumerGroup
 	}
 }
 
-func (v *ConsumerGroupsView) Initialize(g *gocui.Gui) error {
+func (v *ConsumerGroupsView) Initialize(g *gocui.Gui) (bool, error) {
 	x0, y0, x1, y1 := v.GetBounds()
 
 	view, err := g.SetView(v.viewModel.GetName(), x0, y0, x1, y1)
 	if err != nil && err != gocui.ErrUnknownView {
-		return err
+		return false, err
 	}
 
-	view.Title = v.viewModel.GetTitle()
-	view.Highlight = true
-	view.SelBgColor = gocui.ColorBlue
-	view.SelFgColor = gocui.ColorBlack
-	return v.Render(g, view)
+	created := err == gocui.ErrUnknownView
+	if created {
+		view.Title = v.viewModel.GetTitle()
+		view.Highlight = true
+		view.SelBgColor = gocui.ColorBlue
+		view.SelFgColor = gocui.ColorBlack
+	}
+
+	return created, nil
 }
 
 func (v *ConsumerGroupsView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
@@ -62,24 +66,17 @@ func (v *ConsumerGroupsView) Destroy(g *gocui.Gui) error {
 }
 
 func (v *ConsumerGroupsView) StartListening(g *gocui.Gui) {
-	go func() {
-		for range v.viewModel.NotifyChannel() {
-			g.Update(func(gui *gocui.Gui) error {
-				view, err := g.View(v.viewModel.GetName())
-				if err != nil {
-					return err
-				}
-				return v.Render(g, view)
-			})
-		}
-	}()
 	for _, binding := range v.viewModel.GetCommandBindings() {
 		cmd := binding.Cmd
 		go func() {
 			for range cmd.NotifyChannel() {
-				// g.Update(func(gui *gocui.Gui) error {
-				// 	return nil
-				// })
+				g.Update(func(gui *gocui.Gui) error {
+					view, err := g.View(v.viewModel.GetName())
+					if err != nil {
+						return err
+					}
+					return v.Render(g, view)
+				})
 			}
 		}()
 	}

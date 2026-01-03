@@ -19,20 +19,23 @@ func NewSchemaRegistryView(vm *viewmodel.SchemaRegistryViewModel) *SchemaRegistr
 	}
 }
 
-func (v *SchemaRegistryView) Initialize(g *gocui.Gui) error {
+func (v *SchemaRegistryView) Initialize(g *gocui.Gui) (bool, error) {
 	x0, y0, x1, y1 := v.GetBounds()
 
 	view, err := g.SetView(v.viewModel.GetName(), x0, y0, x1, y1)
 	if err != nil && err != gocui.ErrUnknownView {
-		return err
+		return false, err
 	}
 
-	view.Title = v.viewModel.GetTitle()
-	view.Highlight = true
-	view.SelBgColor = gocui.ColorBlue
-	view.SelFgColor = gocui.ColorBlack
+	created := err == gocui.ErrUnknownView
+	if created {
+		view.Title = v.viewModel.GetTitle()
+		view.Highlight = true
+		view.SelBgColor = gocui.ColorBlue
+		view.SelFgColor = gocui.ColorBlack
+	}
 
-	return v.Render(g, view)
+	return created, nil
 }
 
 func (v *SchemaRegistryView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
@@ -66,9 +69,13 @@ func (v *SchemaRegistryView) StartListening(g *gocui.Gui) {
 		cmd := binding.Cmd
 		go func() {
 			for range cmd.NotifyChannel() {
-				// g.Update(func(gui *gocui.Gui) error {
-				// 	return nil
-				// })
+				g.Update(func(gui *gocui.Gui) error {
+					view, err := g.View(v.viewModel.GetName())
+					if err != nil {
+						return err
+					}
+					return v.Render(g, view)
+				})
 			}
 		}()
 	}

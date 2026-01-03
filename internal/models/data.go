@@ -12,6 +12,15 @@ type Topic struct {
 	Replicas   int
 }
 
+type Partition struct {
+	ID           int
+	MessageCount int64
+	StartOffset  int64
+	EndOffset    int64
+	Leader       int
+	Replicas     []int
+}
+
 type ConsumerGroup struct {
 	Name    string
 	State   string
@@ -40,6 +49,21 @@ func MockTopics() []Topic {
 		{Name: "notifications", Partitions: 6, Replicas: 2},
 		{Name: "analytics-events", Partitions: 24, Replicas: 3},
 	}
+}
+
+func MockPartitions(topicName string, count int) []Partition {
+	partitions := make([]Partition, count)
+	for i := range count {
+		partitions[i] = Partition{
+			ID:           i,
+			MessageCount: int64((i + 1) * 500),
+			StartOffset:  0,
+			EndOffset:    int64((i + 1) * 500),
+			Leader:       i % 3,
+			Replicas:     []int{0, 1, 2},
+		}
+	}
+	return partitions
 }
 
 func MockConsumerGroups() []ConsumerGroup {

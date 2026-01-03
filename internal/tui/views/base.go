@@ -6,7 +6,7 @@ import (
 )
 
 type View interface {
-	Initialize(g *gocui.Gui) error
+	Initialize(g *gocui.Gui) (created bool, err error)
 	Render(g *gocui.Gui, v *gocui.View) error
 	Destroy(g *gocui.Gui) error
 	GetViewModel() viewmodel.BaseViewModel
