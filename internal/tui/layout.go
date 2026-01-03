@@ -1,35 +1,28 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jroimartin/gocui"
-	"github.com/jurabek/lazykafka/internal/models"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 	"github.com/jurabek/lazykafka/internal/tui/views"
 )
 
 type Layout struct {
-	views            []views.View
-	activeViewIndex  int
-	gui              *gocui.Gui
+	views           []views.View
+	activeViewIndex int
+	gui             *gocui.Gui
+	mainVM          *viewmodel.MainViewModel
 }
 
-func NewLayout(g *gocui.Gui) *Layout {
-	brokers := models.MockBrokers()
-	topics := models.MockTopics()
-	consumerGroups := models.MockConsumerGroups()
-	schemaRegistries := models.MockSchemaRegistries()
+func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
+	mainVM := viewmodel.NewMainViewModel(ctx)
 
-	brokersVM := viewmodel.NewBrokersViewModel(brokers)
-	topicsVM := viewmodel.NewTopicsViewModel(topics)
-	cgVM := viewmodel.NewConsumerGroupsViewModel(consumerGroups)
-	srVM := viewmodel.NewSchemaRegistryViewModel(schemaRegistries)
-
-	brokersView := views.NewBrokersView(brokersVM)
-	topicsView := views.NewTopicsView(topicsVM)
-	cgView := views.NewConsumerGroupsView(cgVM)
-	srView := views.NewSchemaRegistryView(srVM)
+	brokersView := views.NewBrokersView(mainVM.BrokersVM())
+	topicsView := views.NewTopicsView(mainVM.TopicsVM())
+	cgView := views.NewConsumerGroupsView(mainVM.ConsumerGroupsVM())
+	srView := views.NewSchemaRegistryView(mainVM.SchemaRegistryVM())
 
 	viewList := []views.View{brokersView, topicsView, cgView, srView}
 
@@ -41,6 +34,7 @@ func NewLayout(g *gocui.Gui) *Layout {
 		views:           viewList,
 		activeViewIndex: 0,
 		gui:             g,
+		mainVM:          mainVM,
 	}
 }
 
@@ -86,7 +80,6 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 	return nil
 }
 
-
 func (l *Layout) createHelpView(g *gocui.Gui, maxX, maxY, helpHeight int) error {
 	v, err := g.SetView(panelHelp, 0, maxY-helpHeight-1, maxX-1, maxY-1)
 	if err != nil && err != gocui.ErrUnknownView {
@@ -97,7 +90,6 @@ func (l *Layout) createHelpView(g *gocui.Gui, maxX, maxY, helpHeight int) error 
 	fmt.Fprintln(v, " ←/→: switch panel | ↑/k: up | ↓/j: down | 1-4: jump panel | n: new | q: quit")
 	return nil
 }
-
 
 func (l *Layout) NextPanel(g *gocui.Gui) {
 	l.activeViewIndex = (l.activeViewIndex + 1) % len(l.views)
@@ -125,4 +117,8 @@ func (l *Layout) refreshAllViews(g *gocui.Gui) {
 		_, _ = g.SetCurrentView(activeView.GetViewModel().GetName())
 		return nil
 	})
+}
+
+func (l *Layout) MainViewModel() *viewmodel.MainViewModel {
+	return l.mainVM
 }

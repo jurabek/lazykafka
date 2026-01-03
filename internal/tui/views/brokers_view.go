@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/jroimartin/gocui"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
@@ -29,13 +30,14 @@ func (v *BrokersView) Initialize(g *gocui.Gui) error {
 
 	view.Title = v.viewModel.GetTitle()
 	view.Highlight = true
-	view.SelBgColor = gocui.ColorGreen
+	view.SelBgColor = gocui.ColorBlue
 	view.SelFgColor = gocui.ColorBlack
 
-	return v.Render(g, view)
+	return nil
 }
 
 func (v *BrokersView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
+	slog.Info("rendering brokers view")
 	gocuiView.Clear()
 
 	items := v.viewModel.GetDisplayItems()
@@ -43,6 +45,7 @@ func (v *BrokersView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 
 	for i, item := range items {
 		if i == selectedIdx {
+			gocuiView.SetCursor(0, i)
 			fmt.Fprintf(gocuiView, "> %s\n", item)
 		} else {
 			fmt.Fprintf(gocuiView, "  %s\n", item)
@@ -65,13 +68,13 @@ func (v *BrokersView) StartListening(g *gocui.Gui) {
 		cmd := binding.Cmd
 		go func() {
 			for range cmd.NotifyChannel() {
-				g.Update(func(gui *gocui.Gui) error {
-					view, err := g.View(v.viewModel.GetName())
-					if err != nil {
-						return err
-					}
-					return v.Render(g, view)
-				})
+				// g.Update(func(gui *gocui.Gui) error {
+				// 	view, err := g.View(v.viewModel.GetName())
+				// 	if err != nil {
+				// 		return err
+				// 	}
+				// 	return v.Render(g, view)
+				// })
 			}
 		}()
 	}

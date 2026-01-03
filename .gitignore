@@ -25,3 +25,4 @@ vendor/
 
 # Go workspace file
 go.work
+lazykafka.log

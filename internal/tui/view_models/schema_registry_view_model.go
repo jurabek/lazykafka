@@ -13,15 +13,15 @@ type SchemaRegistryViewModel struct {
 	mu               sync.RWMutex
 	schemaRegistries []models.SchemaRegistry
 	selectedIndex    int
-	notifyCh         chan struct{}
+	notifyCh         chan types.ChangeEvent
 	commandBindings  []*types.CommandBinding
 }
 
 func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry) *SchemaRegistryViewModel {
 	vm := &SchemaRegistryViewModel{
 		schemaRegistries: schemaRegistries,
-		selectedIndex:    0,
-		notifyCh:         make(chan struct{}),
+		selectedIndex:    -1,
+		notifyCh:         make(chan types.ChangeEvent),
 	}
 
 	moveUp := types.NewCommand(vm.MoveUp)
@@ -38,12 +38,12 @@ func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry) *Schem
 	return vm
 }
 
-func (vm *SchemaRegistryViewModel) NotifyChannel() <-chan struct{} {
+func (vm *SchemaRegistryViewModel) NotifyChannel() <-chan types.ChangeEvent {
 	return vm.notifyCh
 }
 
-func (vm *SchemaRegistryViewModel) Notify() {
-	vm.notifyCh <- struct{}{}
+func (vm *SchemaRegistryViewModel) Notify(fieldName string) {
+	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
 }
 
 func (vm *SchemaRegistryViewModel) GetSelectedIndex() int {
@@ -124,7 +124,16 @@ func (vm *SchemaRegistryViewModel) LoadSchemaRegistries(schemaRegistries []model
 	defer vm.mu.Unlock()
 
 	vm.schemaRegistries = schemaRegistries
-	if vm.selectedIndex >= len(schemaRegistries) {
-		vm.selectedIndex = 0
-	}
+	vm.selectedIndex = -1
+}
+
+// LoadForBroker loads schema registries for the given broker asynchronously
+func (vm *SchemaRegistryViewModel) LoadForBroker(broker *models.Broker) {
+	go func() {
+		// TODO: Replace with actual Schema Registry client call
+		schemaRegistries := models.MockSchemaRegistries()
+
+		vm.LoadSchemaRegistries(schemaRegistries)
+		vm.Notify(types.FieldItems)
+	}()
 }

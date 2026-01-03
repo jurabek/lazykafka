@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/jroimartin/gocui"
 )
@@ -11,15 +13,16 @@ type App struct {
 	gui               *gocui.Gui
 	layout            *Layout
 	keyBindingHandler KeyBindingHandler
+	ctx               context.Context
 }
 
-func NewApp() (*App, error) {
+func NewApp(ctx context.Context) (*App, error) {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		return nil, fmt.Errorf("creating gui: %w", err)
 	}
 
-	layout := NewLayout(g)
+	layout := NewLayout(ctx, g)
 	keyBindingHandler := NewKeyBindingHandler(layout)
 
 	g.Cursor = false
@@ -38,11 +41,15 @@ func NewApp() (*App, error) {
 		gui:               g,
 		layout:            layout,
 		keyBindingHandler: keyBindingHandler,
+		ctx:               ctx,
 	}, nil
 }
 
 func (a *App) Run() error {
 	defer a.gui.Close()
+	defer a.ctx.Done()
+
+	defer slog.Info("App closed")
 
 	if err := a.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Printf("main loop error: %v", err)

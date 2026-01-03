@@ -13,15 +13,15 @@ type ConsumerGroupsViewModel struct {
 	mu              sync.RWMutex
 	consumerGroups  []models.ConsumerGroup
 	selectedIndex   int
-	notifyCh        chan struct{}
+	notifyCh        chan types.ChangeEvent
 	commandBindings []*types.CommandBinding
 }
 
 func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup) *ConsumerGroupsViewModel {
 	vm := &ConsumerGroupsViewModel{
 		consumerGroups: consumerGroups,
-		selectedIndex:  0,
-		notifyCh:       make(chan struct{}),
+		selectedIndex:  -1,
+		notifyCh:       make(chan types.ChangeEvent),
 	}
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
@@ -36,12 +36,12 @@ func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup) *Consumer
 	return vm
 }
 
-func (vm *ConsumerGroupsViewModel) NotifyChannel() <-chan struct{} {
+func (vm *ConsumerGroupsViewModel) NotifyChannel() <-chan types.ChangeEvent {
 	return vm.notifyCh
 }
 
-func (vm *ConsumerGroupsViewModel) Notify() {
-	vm.notifyCh <- struct{}{}
+func (vm *ConsumerGroupsViewModel) Notify(fieldName string) {
+	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
 }
 
 func (vm *ConsumerGroupsViewModel) GetSelectedIndex() int {
@@ -122,7 +122,16 @@ func (vm *ConsumerGroupsViewModel) LoadConsumerGroups(consumerGroups []models.Co
 	defer vm.mu.Unlock()
 
 	vm.consumerGroups = consumerGroups
-	if vm.selectedIndex >= len(consumerGroups) {
-		vm.selectedIndex = 0
-	}
+	vm.selectedIndex = -1
+}
+
+// LoadForBroker loads consumer groups for the given broker asynchronously
+func (vm *ConsumerGroupsViewModel) LoadForBroker(broker *models.Broker) {
+	go func() {
+		// TODO: Replace with actual Kafka client call to fetch consumer groups for broker
+		consumerGroups := models.MockConsumerGroups()
+
+		vm.LoadConsumerGroups(consumerGroups)
+		vm.Notify(types.FieldItems)
+	}()
 }

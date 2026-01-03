@@ -13,15 +13,15 @@ type TopicsViewModel struct {
 	mu              sync.RWMutex
 	topics          []models.Topic
 	selectedIndex   int
-	notifyCh        chan struct{}
+	notifyCh        chan types.ChangeEvent
 	commandBindings []*types.CommandBinding
 }
 
 func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
 	vm := &TopicsViewModel{
 		topics:        topics,
-		selectedIndex: 0,
-		notifyCh:      make(chan struct{}),
+		selectedIndex: -1,
+		notifyCh:      make(chan types.ChangeEvent),
 	}
 
 	moveUp := types.NewCommand(vm.MoveUp)
@@ -39,12 +39,12 @@ func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
 
 }
 
-func (vm *TopicsViewModel) NotifyChannel() <-chan struct{} {
+func (vm *TopicsViewModel) NotifyChannel() <-chan types.ChangeEvent {
 	return vm.notifyCh
 }
 
-func (vm *TopicsViewModel) Notify() {
-	vm.notifyCh <- struct{}{}
+func (vm *TopicsViewModel) Notify(fieldName string) {
+	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
 }
 
 func (vm *TopicsViewModel) GetSelectedIndex() int {
@@ -125,7 +125,16 @@ func (vm *TopicsViewModel) LoadTopics(topics []models.Topic) {
 	defer vm.mu.Unlock()
 
 	vm.topics = topics
-	if vm.selectedIndex >= len(topics) {
-		vm.selectedIndex = 0
-	}
+	vm.selectedIndex = -1
+}
+
+// LoadForBroker loads topics for the given broker asynchronously
+func (vm *TopicsViewModel) LoadForBroker(broker *models.Broker) {
+	go func() {
+		// TODO: Replace with actual Kafka client call to fetch topics for broker
+		topics := models.MockTopics()
+
+		vm.LoadTopics(topics)
+		vm.Notify(types.FieldItems)
+	}()
 }

@@ -29,9 +29,8 @@ func (v *ConsumerGroupsView) Initialize(g *gocui.Gui) error {
 
 	view.Title = v.viewModel.GetTitle()
 	view.Highlight = true
-	view.SelBgColor = gocui.ColorGreen
+	view.SelBgColor = gocui.ColorBlue
 	view.SelFgColor = gocui.ColorBlack
-
 	return v.Render(g, view)
 }
 
@@ -43,6 +42,8 @@ func (v *ConsumerGroupsView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 
 	for i, item := range items {
 		if i == selectedIdx {
+
+			gocuiView.SetCursor(0, i)
 			fmt.Fprintf(gocuiView, "> %s\n", item)
 		} else {
 			fmt.Fprintf(gocuiView, "  %s\n", item)
@@ -76,9 +77,9 @@ func (v *ConsumerGroupsView) StartListening(g *gocui.Gui) {
 		cmd := binding.Cmd
 		go func() {
 			for range cmd.NotifyChannel() {
-				g.Update(func(gui *gocui.Gui) error {
-					return nil
-				})
+				// g.Update(func(gui *gocui.Gui) error {
+				// 	return nil
+				// })
 			}
 		}()
 	}

@@ -13,7 +13,7 @@ type BrokersViewModel struct {
 	mu              sync.RWMutex
 	brokers         []models.Broker
 	selectedIndex   int
-	notifyCh        chan struct{}
+	notifyCh        chan types.ChangeEvent
 	commandBindings []*types.CommandBinding
 }
 
@@ -21,18 +21,18 @@ func NewBrokersViewModel(brokers []models.Broker) *BrokersViewModel {
 	vm := &BrokersViewModel{
 		brokers:       brokers,
 		selectedIndex: 0,
-		notifyCh:      make(chan struct{}),
+		notifyCh:      make(chan types.ChangeEvent),
 	}
 	vm.initCommandBindings()
 	return vm
 }
 
-func (vm *BrokersViewModel) NotifyChannel() <-chan struct{} {
+func (vm *BrokersViewModel) NotifyChannel() <-chan types.ChangeEvent {
 	return vm.notifyCh
 }
 
-func (vm *BrokersViewModel) Notify() {
-	vm.notifyCh <- struct{}{}
+func (vm *BrokersViewModel) Notify(fieldName string) {
+	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
 }
 
 func (vm *BrokersViewModel) GetSelectedIndex() int {
@@ -43,10 +43,13 @@ func (vm *BrokersViewModel) GetSelectedIndex() int {
 
 func (vm *BrokersViewModel) SetSelectedIndex(index int) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if index >= 0 && index < len(vm.brokers) {
 		vm.selectedIndex = index
+		vm.mu.Unlock()
+		vm.Notify(types.FieldSelectedIndex)
+		return
 	}
+	vm.mu.Unlock()
 }
 
 func (vm *BrokersViewModel) GetItemCount() int {
@@ -57,21 +60,25 @@ func (vm *BrokersViewModel) GetItemCount() int {
 
 func (vm *BrokersViewModel) MoveUp() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
+		vm.mu.Unlock()
+		vm.Notify(types.FieldSelectedIndex)
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
 }
 
 func (vm *BrokersViewModel) MoveDown() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.brokers)-1 {
 		vm.selectedIndex++
+		vm.mu.Unlock()
+		vm.Notify(types.FieldSelectedIndex)
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
 }
 
