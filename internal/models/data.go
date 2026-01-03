@@ -27,10 +27,18 @@ type ConsumerGroup struct {
 	Members int
 }
 
+type ConsumerGroupOffset struct {
+	Topic     string
+	Partition int
+	Lag       int64
+	Offset    int64
+}
+
 type SchemaRegistry struct {
 	Subject string
 	Version int
 	Type    string
+	Schema  string
 }
 
 func MockBrokers() []Broker {
@@ -75,10 +83,82 @@ func MockConsumerGroups() []ConsumerGroup {
 	}
 }
 
+func MockConsumerGroupOffsets(groupName string) []ConsumerGroupOffset {
+	return []ConsumerGroupOffset{
+		{Topic: "orders", Partition: 0, Lag: 0, Offset: 500},
+		{Topic: "orders", Partition: 1, Lag: 10, Offset: 490},
+		{Topic: "orders", Partition: 2, Lag: 5, Offset: 495},
+		{Topic: "payments", Partition: 0, Lag: 0, Offset: 1000},
+	}
+}
+
 func MockSchemaRegistries() []SchemaRegistry {
 	return []SchemaRegistry{
-		{Subject: "orders-value", Version: 3, Type: "AVRO"},
-		{Subject: "payments-value", Version: 2, Type: "AVRO"},
-		{Subject: "users-value", Version: 5, Type: "JSON"},
+		{
+			Subject: "orders-value",
+			Version: 3,
+			Type:    "AVRO",
+			Schema: `{
+  "type": "record",
+  "name": "Order",
+  "namespace": "com.example.orders",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": {
+        "type": "int",
+        "connect.default": 0
+      },
+      "default": 0
+    },
+    {
+      "name": "status",
+      "type": "string"
+    }
+  ]
+}`,
+		},
+		{
+			Subject: "payments-value",
+			Version: 2,
+			Type:    "AVRO",
+			Schema: `{
+  "type": "record",
+  "name": "Payment",
+  "namespace": "com.example.payments",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "double"
+    }
+  ]
+}`,
+		},
+		{
+			Subject: "users-value",
+			Version: 5,
+			Type:    "JSON",
+			Schema: `{
+  "type": "object",
+  "properties": {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "email": {"type": "string"}
+  },
+  "required": ["id", "name"]
+}`,
+		},
 	}
 }

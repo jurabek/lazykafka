@@ -11,12 +11,20 @@ import (
 
 const sidebarWidth = 40
 
+const (
+	sidebarBrokers = iota
+	sidebarTopics
+	sidebarConsumerGroups
+	sidebarSchemaRegistry
+)
+
 type Layout struct {
-	sidebarViews    []views.View
-	detailView      views.View
-	activeViewIndex int
-	gui             *gocui.Gui
-	mainVM          *viewmodel.MainViewModel
+	sidebarViews       []views.View
+	detailViews        map[int]views.View
+	activeViewIndex    int
+	activeDetailIndex  int
+	gui                *gocui.Gui
+	mainVM             *viewmodel.MainViewModel
 }
 
 func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
@@ -26,21 +34,33 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 	topicsView := views.NewTopicsView(mainVM.TopicsVM())
 	cgView := views.NewConsumerGroupsView(mainVM.ConsumerGroupsVM())
 	srView := views.NewSchemaRegistryView(mainVM.SchemaRegistryVM())
-	detailView := views.NewTopicDetailView(mainVM.TopicDetailVM())
+
+	topicDetailView := views.NewTopicDetailView(mainVM.TopicDetailVM())
+	cgDetailView := views.NewConsumerGroupDetailView(mainVM.ConsumerGroupDetailVM())
+	srDetailView := views.NewSchemaRegistryDetailView(mainVM.SchemaRegistryDetailVM())
 
 	sidebarViews := []views.View{brokersView, topicsView, cgView, srView}
+	detailViews := map[int]views.View{
+		sidebarTopics:         topicDetailView,
+		sidebarConsumerGroups: cgDetailView,
+		sidebarSchemaRegistry: srDetailView,
+	}
 
-	for _, v := range sidebarViews {
+	for i, v := range sidebarViews {
+		v.SetActive(i == 0)
 		v.StartListening(g)
 	}
-	detailView.StartListening(g)
+	for _, v := range detailViews {
+		v.StartListening(g)
+	}
 
 	return &Layout{
-		sidebarViews:    sidebarViews,
-		detailView:      detailView,
-		activeViewIndex: 0,
-		gui:             g,
-		mainVM:          mainVM,
+		sidebarViews:      sidebarViews,
+		detailViews:       detailViews,
+		activeViewIndex:   0,
+		activeDetailIndex: -1,
+		gui:               g,
+		mainVM:            mainVM,
 	}
 }
 
@@ -82,17 +102,8 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 		}
 	}
 
-	l.detailView.SetBounds(sidebarX+1, 0, maxX-1, maxY-helpHeight-2)
-	created, err := l.detailView.Initialize(g)
-	if err != nil {
-		return fmt.Errorf("initializing detail view: %w", err)
-	}
-	if created {
-		if gocuiView, err := g.View(l.detailView.GetViewModel().GetName()); err == nil {
-			if err := l.detailView.Render(g, gocuiView); err != nil {
-				return fmt.Errorf("rendering detail view: %w", err)
-			}
-		}
+	if err := l.manageDetailViews(g, sidebarX+1, 0, maxX-1, maxY-helpHeight-2); err != nil {
+		return err
 	}
 
 	if err := l.createHelpView(g, maxX, maxY, helpHeight); err != nil {
@@ -102,6 +113,42 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 	activeView := l.sidebarViews[l.activeViewIndex]
 	if _, err := g.SetCurrentView(activeView.GetViewModel().GetName()); err != nil {
 		return fmt.Errorf("setting current view: %w", err)
+	}
+
+	return nil
+}
+
+func (l *Layout) manageDetailViews(g *gocui.Gui, x0, y0, x1, y1 int) error {
+	_, hasDetail := l.detailViews[l.activeViewIndex]
+
+	for idx, view := range l.detailViews {
+		if idx == l.activeViewIndex && hasDetail {
+			view.SetBounds(x0, y0, x1, y1)
+			created, err := view.Initialize(g)
+			if err != nil {
+				return fmt.Errorf("initializing detail view: %w", err)
+			}
+			if created || l.activeDetailIndex != idx {
+				if gocuiView, err := g.View(view.GetViewModel().GetName()); err == nil {
+					if err := view.Render(g, gocuiView); err != nil {
+						return fmt.Errorf("rendering detail view: %w", err)
+					}
+				}
+			}
+			if gocuiView, err := g.View(view.GetViewModel().GetName()); err == nil {
+				g.SetViewOnTop(gocuiView.Name())
+			}
+		} else {
+			if gocuiView, err := g.View(view.GetViewModel().GetName()); err == nil {
+				g.SetViewOnBottom(gocuiView.Name())
+			}
+		}
+	}
+
+	if hasDetail {
+		l.activeDetailIndex = l.activeViewIndex
+	} else {
+		l.activeDetailIndex = -1
 	}
 
 	return nil
@@ -140,6 +187,12 @@ func (l *Layout) JumpToPanel(g *gocui.Gui, index int) {
 
 func (l *Layout) refreshAllViews(g *gocui.Gui) {
 	g.Update(func(g *gocui.Gui) error {
+		for i, view := range l.sidebarViews {
+			view.SetActive(i == l.activeViewIndex)
+			if gocuiView, err := g.View(view.GetViewModel().GetName()); err == nil {
+				view.Render(g, gocuiView)
+			}
+		}
 		activeView := l.sidebarViews[l.activeViewIndex]
 		_, _ = g.SetCurrentView(activeView.GetViewModel().GetName())
 		return nil

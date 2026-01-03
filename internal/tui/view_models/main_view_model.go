@@ -13,11 +13,13 @@ import (
 type MainViewModel struct {
 	mu sync.RWMutex
 
-	brokersVM        *BrokersViewModel
-	topicsVM         *TopicsViewModel
-	consumerGroupsVM *ConsumerGroupsViewModel
-	schemaRegistryVM *SchemaRegistryViewModel
-	topicDetailVM    *TopicDetailViewModel
+	brokersVM                *BrokersViewModel
+	topicsVM                 *TopicsViewModel
+	consumerGroupsVM         *ConsumerGroupsViewModel
+	schemaRegistryVM         *SchemaRegistryViewModel
+	topicDetailVM            *TopicDetailViewModel
+	consumerGroupDetailVM    *ConsumerGroupDetailViewModel
+	schemaRegistryDetailVM   *SchemaRegistryDetailViewModel
 
 	notifyCh chan types.ChangeEvent
 	ctx      context.Context
@@ -31,17 +33,21 @@ func NewMainViewModel(ctx context.Context) *MainViewModel {
 	schemaRegistries := []models.SchemaRegistry{}
 
 	vm := &MainViewModel{
-		brokersVM:        NewBrokersViewModel(brokers),
-		topicsVM:         NewTopicsViewModel(topics),
-		consumerGroupsVM: NewConsumerGroupsViewModel(consumerGroups),
-		schemaRegistryVM: NewSchemaRegistryViewModel(schemaRegistries),
-		topicDetailVM:    NewTopicDetailViewModel(),
-		notifyCh:         make(chan types.ChangeEvent),
-		ctx:              ctx,
+		brokersVM:              NewBrokersViewModel(brokers),
+		topicsVM:               NewTopicsViewModel(topics),
+		consumerGroupsVM:       NewConsumerGroupsViewModel(consumerGroups),
+		schemaRegistryVM:       NewSchemaRegistryViewModel(schemaRegistries),
+		topicDetailVM:          NewTopicDetailViewModel(),
+		consumerGroupDetailVM:  NewConsumerGroupDetailViewModel(),
+		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
+		notifyCh:               make(chan types.ChangeEvent),
+		ctx:                    ctx,
 	}
 
 	vm.startBrokerSubscription()
-	vm.startTopicSubscription()
+	vm.setupTopicSelectionCallback()
+	vm.setupConsumerGroupSelectionCallback()
+	vm.setupSchemaRegistrySelectionCallback()
 
 	// Trigger initial load for the first broker (index 0)
 	if broker := vm.brokersVM.GetSelectedBroker(); broker != nil {
@@ -70,20 +76,25 @@ func (vm *MainViewModel) startBrokerSubscription() {
 	}()
 }
 
-// startTopicSubscription listens to TopicsViewModel selection changes
-func (vm *MainViewModel) startTopicSubscription() {
-	go func() {
-		for _, binding := range vm.topicsVM.GetCommandBindings() {
-			cmd := binding.Cmd
-			go func() {
-				for range cmd.NotifyChannel() {
-					if topic := vm.topicsVM.GetSelectedTopic(); topic != nil {
-						vm.topicDetailVM.SetTopic(topic)
-					}
-				}
-			}()
-		}
-	}()
+// setupTopicSelectionCallback registers callback for topic selection changes
+func (vm *MainViewModel) setupTopicSelectionCallback() {
+	vm.topicsVM.SetOnSelectionChanged(func(topic *models.Topic) {
+		vm.topicDetailVM.SetTopic(topic)
+	})
+}
+
+// setupConsumerGroupSelectionCallback registers callback for consumer group selection changes
+func (vm *MainViewModel) setupConsumerGroupSelectionCallback() {
+	vm.consumerGroupsVM.SetOnSelectionChanged(func(cg *models.ConsumerGroup) {
+		vm.consumerGroupDetailVM.SetConsumerGroup(cg)
+	})
+}
+
+// setupSchemaRegistrySelectionCallback registers callback for schema registry selection changes
+func (vm *MainViewModel) setupSchemaRegistrySelectionCallback() {
+	vm.schemaRegistryVM.SetOnSelectionChanged(func(sr *models.SchemaRegistry) {
+		vm.schemaRegistryDetailVM.SetSchema(sr)
+	})
 }
 
 // loadDependentData triggers async reload of all dependent ViewModels
@@ -119,4 +130,12 @@ func (vm *MainViewModel) SchemaRegistryVM() *SchemaRegistryViewModel {
 
 func (vm *MainViewModel) TopicDetailVM() *TopicDetailViewModel {
 	return vm.topicDetailVM
+}
+
+func (vm *MainViewModel) ConsumerGroupDetailVM() *ConsumerGroupDetailViewModel {
+	return vm.consumerGroupDetailVM
+}
+
+func (vm *MainViewModel) SchemaRegistryDetailVM() *SchemaRegistryDetailViewModel {
+	return vm.schemaRegistryDetailVM
 }

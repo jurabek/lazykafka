@@ -9,12 +9,15 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
+type CGSelectionChangedFunc func(cg *models.ConsumerGroup)
+
 type ConsumerGroupsViewModel struct {
-	mu              sync.RWMutex
-	consumerGroups  []models.ConsumerGroup
-	selectedIndex   int
-	notifyCh        chan types.ChangeEvent
-	commandBindings []*types.CommandBinding
+	mu                 sync.RWMutex
+	consumerGroups     []models.ConsumerGroup
+	selectedIndex      int
+	notifyCh           chan types.ChangeEvent
+	commandBindings    []*types.CommandBinding
+	onSelectionChanged CGSelectionChangedFunc
 }
 
 func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup) *ConsumerGroupsViewModel {
@@ -66,22 +69,40 @@ func (vm *ConsumerGroupsViewModel) GetItemCount() int {
 
 func (vm *ConsumerGroupsViewModel) MoveUp() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
+		cg := &vm.consumerGroups[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(cg)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
 }
 
 func (vm *ConsumerGroupsViewModel) MoveDown() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.consumerGroups)-1 {
 		vm.selectedIndex++
+		cg := &vm.consumerGroups[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(cg)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
+}
+
+func (vm *ConsumerGroupsViewModel) SetOnSelectionChanged(fn CGSelectionChangedFunc) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onSelectionChanged = fn
 }
 
 func (vm *ConsumerGroupsViewModel) GetCommandBindings() []*types.CommandBinding {

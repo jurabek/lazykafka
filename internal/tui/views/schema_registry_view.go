@@ -40,12 +40,13 @@ func (v *SchemaRegistryView) Initialize(g *gocui.Gui) (bool, error) {
 
 func (v *SchemaRegistryView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 	gocuiView.Clear()
+	gocuiView.Highlight = v.IsActive()
 
 	items := v.viewModel.GetDisplayItems()
 	selectedIdx := v.viewModel.GetSelectedIndex()
 
 	for i, item := range items {
-		if i == selectedIdx {
+		if i == selectedIdx && v.IsActive() {
 			gocuiView.SetCursor(0, i)
 			fmt.Fprintf(gocuiView, "> %s\n", item)
 		} else {

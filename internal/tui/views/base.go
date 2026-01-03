@@ -12,12 +12,15 @@ type View interface {
 	GetViewModel() viewmodel.BaseViewModel
 	GetBounds() (x0, y0, x1, y1 int)
 	SetBounds(x0, y0, x1, y1 int)
+	SetActive(active bool)
+	IsActive() bool
 	StartListening(g *gocui.Gui)
 }
 
 type BaseView struct {
 	viewModel      viewmodel.BaseViewModel
 	x0, y0, x1, y1 int
+	isActive       bool
 }
 
 func (v *BaseView) GetViewModel() viewmodel.BaseViewModel {
@@ -33,4 +36,12 @@ func (v *BaseView) SetBounds(x0, y0, x1, y1 int) {
 	v.y0 = y0
 	v.x1 = x1
 	v.y1 = y1
+}
+
+func (v *BaseView) SetActive(active bool) {
+	v.isActive = active
+}
+
+func (v *BaseView) IsActive() bool {
+	return v.isActive
 }

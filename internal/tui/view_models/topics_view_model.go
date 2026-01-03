@@ -9,12 +9,15 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
+type SelectionChangedFunc func(topic *models.Topic)
+
 type TopicsViewModel struct {
-	mu              sync.RWMutex
-	topics          []models.Topic
-	selectedIndex   int
-	notifyCh        chan types.ChangeEvent
-	commandBindings []*types.CommandBinding
+	mu                 sync.RWMutex
+	topics             []models.Topic
+	selectedIndex      int
+	notifyCh           chan types.ChangeEvent
+	commandBindings    []*types.CommandBinding
+	onSelectionChanged SelectionChangedFunc
 }
 
 func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
@@ -69,22 +72,40 @@ func (vm *TopicsViewModel) GetItemCount() int {
 
 func (vm *TopicsViewModel) MoveUp() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
+		topic := &vm.topics[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(topic)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
 }
 
 func (vm *TopicsViewModel) MoveDown() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.topics)-1 {
 		vm.selectedIndex++
+		topic := &vm.topics[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(topic)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
+}
+
+func (vm *TopicsViewModel) SetOnSelectionChanged(fn SelectionChangedFunc) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onSelectionChanged = fn
 }
 
 func (vm *TopicsViewModel) GetCommandBindings() []*types.CommandBinding {

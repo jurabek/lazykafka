@@ -9,12 +9,15 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
+type SRSelectionChangedFunc func(sr *models.SchemaRegistry)
+
 type SchemaRegistryViewModel struct {
-	mu               sync.RWMutex
-	schemaRegistries []models.SchemaRegistry
-	selectedIndex    int
-	notifyCh         chan types.ChangeEvent
-	commandBindings  []*types.CommandBinding
+	mu                 sync.RWMutex
+	schemaRegistries   []models.SchemaRegistry
+	selectedIndex      int
+	notifyCh           chan types.ChangeEvent
+	commandBindings    []*types.CommandBinding
+	onSelectionChanged SRSelectionChangedFunc
 }
 
 func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry) *SchemaRegistryViewModel {
@@ -68,22 +71,40 @@ func (vm *SchemaRegistryViewModel) GetItemCount() int {
 
 func (vm *SchemaRegistryViewModel) MoveUp() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
+		sr := &vm.schemaRegistries[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(sr)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
 }
 
 func (vm *SchemaRegistryViewModel) MoveDown() error {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if vm.selectedIndex < len(vm.schemaRegistries)-1 {
 		vm.selectedIndex++
+		sr := &vm.schemaRegistries[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(sr)
+		}
 		return nil
 	}
+	vm.mu.Unlock()
 	return types.ErrNoSelection
+}
+
+func (vm *SchemaRegistryViewModel) SetOnSelectionChanged(fn SRSelectionChangedFunc) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onSelectionChanged = fn
 }
 
 func (vm *SchemaRegistryViewModel) GetCommandBindings() []*types.CommandBinding {

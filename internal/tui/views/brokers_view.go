@@ -42,6 +42,7 @@ func (v *BrokersView) Initialize(g *gocui.Gui) (bool, error) {
 func (v *BrokersView) Render(g *gocui.Gui, gocuiView *gocui.View) error {
 	slog.Info("rendering brokers view")
 	gocuiView.Clear()
+	gocuiView.Highlight = v.IsActive()
 
 	items := v.viewModel.GetDisplayItems()
 	selectedIdx := v.viewModel.GetSelectedIndex()
