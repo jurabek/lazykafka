@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/jroimartin/gocui"
+import (
+	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/tui/types"
+)
 
 type KeyBindingHandler interface {
 	SetupKeyBindings(g *gocui.Gui) error
@@ -15,100 +18,158 @@ func NewKeyBindingHandler(layout *Layout) KeyBindingHandler {
 }
 
 func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
-	// Global quit
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, h.quit); err != nil {
+	if err := h.setupGlobalBindings(g); err != nil {
 		return err
 	}
 
-	// Arrow keys work globally
-	if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, h.moveUp); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, h.moveDown); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.KeyArrowRight, gocui.ModNone, h.nextPanel); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding("", gocui.KeyArrowLeft, gocui.ModNone, h.prevPanel); err != nil {
-		return err
-	}
+	for _, view := range h.layout.views {
+		vm := view.GetViewModel()
+		opts := types.KeybindingsOpts{
+			GetKey: func(key string) types.Key {
+				return key
+			},
+			Config: types.KeybindingConfig{},
+		}
+		bindings := vm.GetKeybindings(opts)
 
-	// Panel-specific bindings
-	panels := []string{panelBrokers, panelTopics, panelConsumerGroups, panelSchemaRegistry}
-	for _, panel := range panels {
-		if err := g.SetKeybinding(panel, 'q', gocui.ModNone, h.quit); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, 'k', gocui.ModNone, h.moveUp); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, 'j', gocui.ModNone, h.moveDown); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, 'l', gocui.ModNone, h.nextPanel); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, 'h', gocui.ModNone, h.prevPanel); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, '1', gocui.ModNone, h.jumpToPanel1); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, '2', gocui.ModNone, h.jumpToPanel2); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, '3', gocui.ModNone, h.jumpToPanel3); err != nil {
-			return err
-		}
-		if err := g.SetKeybinding(panel, '4', gocui.ModNone, h.jumpToPanel4); err != nil {
-			return err
+		for _, binding := range bindings {
+			wrappedHandler := h.wrapHandler(binding.Handler)
+			if err := g.SetKeybinding(
+				binding.ViewName,
+				binding.Key,
+				binding.Modifier,
+				wrappedHandler,
+			); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (h *keyBindingHandler) quit(_ *gocui.Gui, _ *gocui.View) error {
+func (h *keyBindingHandler) wrapHandler(handler func() error) func(*gocui.Gui, *gocui.View) error {
+	return func(g *gocui.Gui, v *gocui.View) error {
+		return handler()
+	}
+}
+
+func (h *keyBindingHandler) setupGlobalBindings(g *gocui.Gui) error {
+	globalBindings := h.getGlobalBindings()
+	for _, binding := range globalBindings {
+		wrappedHandler := h.wrapHandler(binding.Handler)
+		if err := g.SetKeybinding("", binding.Key, binding.Modifier, wrappedHandler); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
+	return []*types.Binding{
+		{
+			ViewName:    "",
+			Key:         gocui.KeyCtrlC,
+			Modifier:    gocui.ModNone,
+			Handler:     h.quit,
+			Description: "quit",
+		},
+		{
+			ViewName:    "",
+			Key:         'q',
+			Modifier:    gocui.ModNone,
+			Handler:     h.quit,
+			Description: "quit",
+		},
+		{
+			ViewName:    "",
+			Key:         gocui.KeyArrowRight,
+			Modifier:    gocui.ModNone,
+			Handler:     h.nextPanel,
+			Description: "next panel",
+		},
+		{
+			ViewName:    "",
+			Key:         gocui.KeyArrowLeft,
+			Modifier:    gocui.ModNone,
+			Handler:     h.prevPanel,
+			Description: "previous panel",
+		},
+		{
+			ViewName:    "",
+			Key:         'l',
+			Modifier:    gocui.ModNone,
+			Handler:     h.nextPanel,
+			Description: "next panel",
+		},
+		{
+			ViewName:    "",
+			Key:         'h',
+			Modifier:    gocui.ModNone,
+			Handler:     h.prevPanel,
+			Description: "previous panel",
+		},
+		{
+			ViewName:    "",
+			Key:         '1',
+			Modifier:    gocui.ModNone,
+			Handler:     h.jumpToPanel1,
+			Description: "jump to panel 1",
+		},
+		{
+			ViewName:    "",
+			Key:         '2',
+			Modifier:    gocui.ModNone,
+			Handler:     h.jumpToPanel2,
+			Description: "jump to panel 2",
+		},
+		{
+			ViewName:    "",
+			Key:         '3',
+			Modifier:    gocui.ModNone,
+			Handler:     h.jumpToPanel3,
+			Description: "jump to panel 3",
+		},
+		{
+			ViewName:    "",
+			Key:         '4',
+			Modifier:    gocui.ModNone,
+			Handler:     h.jumpToPanel4,
+			Description: "jump to panel 4",
+		},
+	}
+}
+
+func (h *keyBindingHandler) quit() error {
 	return gocui.ErrQuit
 }
 
-func (h *keyBindingHandler) moveUp(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.MoveUp(g)
+func (h *keyBindingHandler) nextPanel() error {
+	h.layout.NextPanel(h.layout.gui)
 	return nil
 }
 
-func (h *keyBindingHandler) moveDown(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.MoveDown(g)
+func (h *keyBindingHandler) prevPanel() error {
+	h.layout.PrevPanel(h.layout.gui)
 	return nil
 }
 
-func (h *keyBindingHandler) nextPanel(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.NextPanel(g)
+func (h *keyBindingHandler) jumpToPanel1() error {
+	h.layout.JumpToPanel(h.layout.gui, 0)
 	return nil
 }
 
-func (h *keyBindingHandler) prevPanel(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.PrevPanel(g)
+func (h *keyBindingHandler) jumpToPanel2() error {
+	h.layout.JumpToPanel(h.layout.gui, 1)
 	return nil
 }
 
-func (h *keyBindingHandler) jumpToPanel1(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.JumpToPanel(g, 0)
+func (h *keyBindingHandler) jumpToPanel3() error {
+	h.layout.JumpToPanel(h.layout.gui, 2)
 	return nil
 }
 
-func (h *keyBindingHandler) jumpToPanel2(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.JumpToPanel(g, 1)
-	return nil
-}
-
-func (h *keyBindingHandler) jumpToPanel3(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.JumpToPanel(g, 2)
-	return nil
-}
-
-func (h *keyBindingHandler) jumpToPanel4(g *gocui.Gui, _ *gocui.View) error {
-	h.layout.JumpToPanel(g, 3)
+func (h *keyBindingHandler) jumpToPanel4() error {
+	h.layout.JumpToPanel(h.layout.gui, 3)
 	return nil
 }

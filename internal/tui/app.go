@@ -19,7 +19,7 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("creating gui: %w", err)
 	}
 
-	layout := NewLayout()
+	layout := NewLayout(g)
 	keyBindingHandler := NewKeyBindingHandler(layout)
 
 	g.Cursor = false
