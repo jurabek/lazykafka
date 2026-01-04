@@ -29,6 +29,7 @@ func NewApp(ctx context.Context) (*App, error) {
 	g.Mouse = false
 	g.Highlight = true
 	g.SelFgColor = gocui.ColorGreen
+	g.InputEsc = true
 
 	g.SetManagerFunc(layout.Manager)
 

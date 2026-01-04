@@ -136,3 +136,15 @@ func (vm *BrokersViewModel) LoadBrokers(brokers []models.Broker) {
 		vm.selectedIndex = 0
 	}
 }
+
+func (vm *BrokersViewModel) AddBrokerConfig(config models.BrokerConfig) {
+	vm.mu.Lock()
+	newBroker := models.Broker{
+		ID:   len(vm.brokers),
+		Host: config.BootstrapServers,
+		Port: 9092,
+	}
+	vm.brokers = append(vm.brokers, newBroker)
+	vm.mu.Unlock()
+	vm.Notify(types.FieldItems)
+}

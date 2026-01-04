@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/data"
+	"github.com/jurabek/lazykafka/internal/models"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 	"github.com/jurabek/lazykafka/internal/tui/views"
 )
@@ -19,12 +21,14 @@ const (
 )
 
 type Layout struct {
-	sidebarViews       []views.View
-	detailViews        map[int]views.View
-	activeViewIndex    int
-	activeDetailIndex  int
-	gui                *gocui.Gui
-	mainVM             *viewmodel.MainViewModel
+	sidebarViews      []views.View
+	detailViews       map[int]views.View
+	activeViewIndex   int
+	activeDetailIndex int
+	gui               *gocui.Gui
+	mainVM            *viewmodel.MainViewModel
+	popupManager      *PopupManager
+	brokerStorage     data.BrokerStorage
 }
 
 func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
@@ -54,14 +58,23 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 		v.StartListening(g)
 	}
 
-	return &Layout{
+	brokerStorage, _ := data.NewFileBrokerStorage()
+
+	layout := &Layout{
 		sidebarViews:      sidebarViews,
 		detailViews:       detailViews,
 		activeViewIndex:   0,
 		activeDetailIndex: -1,
 		gui:               g,
 		mainVM:            mainVM,
+		brokerStorage:     brokerStorage,
 	}
+
+	layout.popupManager = NewPopupManager(g, layout, func(config models.BrokerConfig) {
+		layout.onBrokerAdded(config)
+	})
+
+	return layout
 }
 
 func (l *Layout) Manager(g *gocui.Gui) error {
@@ -110,9 +123,11 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 		return fmt.Errorf("creating help view: %w", err)
 	}
 
-	activeView := l.sidebarViews[l.activeViewIndex]
-	if _, err := g.SetCurrentView(activeView.GetViewModel().GetName()); err != nil {
-		return fmt.Errorf("setting current view: %w", err)
+	if l.popupManager == nil || !l.popupManager.IsActive() {
+		activeView := l.sidebarViews[l.activeViewIndex]
+		if _, err := g.SetCurrentView(activeView.GetViewModel().GetName()); err != nil {
+			return fmt.Errorf("setting current view: %w", err)
+		}
 	}
 
 	return nil
@@ -201,4 +216,34 @@ func (l *Layout) refreshAllViews(g *gocui.Gui) {
 
 func (l *Layout) MainViewModel() *viewmodel.MainViewModel {
 	return l.mainVM
+}
+
+func (l *Layout) ShowAddBrokerPopup() error {
+	return l.popupManager.ShowAddBrokerPopup()
+}
+
+func (l *Layout) IsPopupActive() bool {
+	return l.popupManager.IsActive()
+}
+
+func (l *Layout) ClosePopup() {
+	l.popupManager.Close()
+}
+
+func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
+	l.mainVM.BrokersVM().AddBrokerConfig(config)
+
+	if l.brokerStorage != nil {
+		configs, _ := l.brokerStorage.Load()
+		configs = append(configs, config)
+		_ = l.brokerStorage.Save(configs)
+	}
+
+	l.gui.Update(func(g *gocui.Gui) error {
+		if view, err := g.View(panelBrokers); err == nil {
+			brokersView := l.sidebarViews[sidebarBrokers]
+			_ = brokersView.Render(g, view)
+		}
+		return nil
+	})
 }
