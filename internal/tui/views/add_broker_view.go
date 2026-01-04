@@ -18,9 +18,11 @@ const (
 )
 
 type wizardEditor struct {
-	onEsc   func()
-	onEnter func()
-	onTab   func()
+	onEsc       func()
+	onEnter     func()
+	onArrowUp   func()
+	onArrowDown func()
+	view        *AddBrokerView
 }
 
 func (e *wizardEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
@@ -35,12 +37,23 @@ func (e *wizardEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Mod
 			e.onEnter()
 		}
 		return
-	case gocui.KeyTab:
-		if e.onTab != nil {
-			e.onTab()
+	case gocui.KeyArrowUp:
+		if e.onArrowUp != nil {
+			e.onArrowUp()
+		}
+		return
+	case gocui.KeyArrowDown:
+		if e.onArrowDown != nil {
+			e.onArrowDown()
 		}
 		return
 	}
+
+	// Prevent text input during auth type selection
+	if e.view != nil && e.view.viewModel.GetCurrentStep() == viewmodel.StepAuthType {
+		return
+	}
+
 	gocui.DefaultEditor.Edit(v, key, ch, mod)
 }
 
@@ -68,6 +81,16 @@ func (v *AddBrokerView) Initialize(g *gocui.Gui) error {
 
 func (v *AddBrokerView) render() error {
 	maxX, maxY := v.gui.Size()
+
+	// Calculate dynamic height
+	step := v.viewModel.GetCurrentStep()
+	var wizardHeight int
+	if step == viewmodel.StepAuthType {
+		wizardHeight = 6 // 4 options + title + padding
+	} else {
+		wizardHeight = 2 // standard input height
+	}
+
 	x0 := (maxX - wizardWidth) / 2
 	y0 := (maxY - wizardHeight) / 2
 	x1 := x0 + wizardWidth
@@ -80,21 +103,25 @@ func (v *AddBrokerView) render() error {
 	inputView.Title = " " + v.viewModel.GetStepTitle() + " "
 	inputView.Editable = true
 	inputView.Editor = &wizardEditor{
-		onEsc:   v.handleEsc,
-		onEnter: v.handleEnter,
-		onTab:   v.handleTab,
+		onEsc:       v.handleEsc,
+		onEnter:     v.handleEnter,
+		onArrowUp:   v.handleArrowUp,
+		onArrowDown: v.handleArrowDown,
+		view:        v,
 	}
-	inputView.SetCursor(0, 0) // Position cursor at the start
 
-	step := v.viewModel.GetCurrentStep()
+	// Handle different step rendering
 	if step == viewmodel.StepAuthType {
-		inputView.Editable = false
-		inputView.Clear()
-		fmt.Fprint(inputView, v.viewModel.GetAuthType().String())
-	} else if step == viewmodel.StepPassword {
-		inputView.Mask = '*'
+		v.renderAuthTypeList(inputView)
+		v.gui.Cursor = false // Hide cursor for list selection
 	} else {
-		inputView.Mask = 0
+		inputView.SetCursor(0, 0) // Position cursor at the start
+		v.gui.Cursor = true       // Show cursor for text input
+		if step == viewmodel.StepPassword {
+			inputView.Mask = '*'
+		} else {
+			inputView.Mask = 0
+		}
 	}
 
 	_, _ = v.gui.SetViewOnTop(wizardInput)
@@ -123,8 +150,12 @@ func (v *AddBrokerView) handleEnter() {
 	step := v.viewModel.GetCurrentStep()
 
 	if step == viewmodel.StepAuthType {
-		v.viewModel.CycleAuthType()
-		v.updateAuthDisplay()
+		// Don't cycle, just confirm selection and move to next step
+		if v.viewModel.NextStep() {
+			_ = v.viewModel.Submit()
+		} else {
+			v.clearAndRender()
+		}
 		return
 	}
 
@@ -137,20 +168,34 @@ func (v *AddBrokerView) handleEnter() {
 	}
 }
 
-func (v *AddBrokerView) handleTab() {
+func (v *AddBrokerView) handleArrowUp() {
 	step := v.viewModel.GetCurrentStep()
-
 	if step == viewmodel.StepAuthType {
-		v.saveCurrentValue()
-		if v.viewModel.NextStep() {
-			_ = v.viewModel.Submit()
-		} else {
-			v.clearAndRender()
-		}
-		return
+		v.viewModel.MoveAuthTypeUp()
+		v.updateAuthDisplay()
 	}
+}
 
-	v.handleEnter()
+func (v *AddBrokerView) handleArrowDown() {
+	step := v.viewModel.GetCurrentStep()
+	if step == viewmodel.StepAuthType {
+		v.viewModel.MoveAuthTypeDown()
+		v.updateAuthDisplay()
+	}
+}
+
+func (v *AddBrokerView) renderAuthTypeList(inputView *gocui.View) {
+	inputView.Clear()
+	options := v.viewModel.GetAuthTypeOptions()
+	selectedIdx := v.viewModel.GetSelectedAuthTypeIndex()
+
+	for i, option := range options {
+		prefix := "  "
+		if i == selectedIdx {
+			prefix = "> "
+		}
+		fmt.Fprintf(inputView, "%s%s\n", prefix, option)
+	}
 }
 
 func (v *AddBrokerView) saveCurrentValue() {
@@ -177,8 +222,7 @@ func (v *AddBrokerView) updateAuthDisplay() {
 	if err != nil {
 		return
 	}
-	inputView.Clear()
-	fmt.Fprint(inputView, v.viewModel.GetAuthType().String())
+	v.renderAuthTypeList(inputView)
 }
 
 func (v *AddBrokerView) clearAndRender() {

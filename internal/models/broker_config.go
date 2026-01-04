@@ -6,6 +6,7 @@ const (
 	AuthNone AuthType = iota
 	AuthSASL
 	AuthSSL
+	AuthAWSIAM
 )
 
 func (a AuthType) String() string {
@@ -14,6 +15,8 @@ func (a AuthType) String() string {
 		return "SASL"
 	case AuthSSL:
 		return "SSL"
+	case AuthAWSIAM:
+		return "AWS IAM"
 	default:
 		return "None"
 	}

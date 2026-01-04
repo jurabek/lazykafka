@@ -68,7 +68,7 @@ func (vm *AddBrokerViewModel) GetStepTitle() string {
 	case StepBootstrapServers:
 		return "Bootstrap servers:"
 	case StepAuthType:
-		return "Auth type (Enter to cycle, Tab to confirm):"
+		return "Auth type (↑↓ to select, Enter to confirm):"
 	case StepUsername:
 		return "Username:"
 	case StepPassword:
@@ -87,7 +87,7 @@ func (vm *AddBrokerViewModel) NextStep() bool {
 	case StepBootstrapServers:
 		vm.currentStep = StepAuthType
 	case StepAuthType:
-		if vm.authType == models.AuthSASL {
+		if vm.authType == models.AuthSASL || vm.authType == models.AuthAWSIAM {
 			vm.currentStep = StepUsername
 		} else {
 			return true // done, submit
@@ -116,11 +116,49 @@ func (vm *AddBrokerViewModel) PrevStep() {
 	}
 }
 
-func (vm *AddBrokerViewModel) CycleAuthType() {
+func (vm *AddBrokerViewModel) GetAuthTypeOptions() []string {
+	return []string{"None", "SASL", "SSL", "AWS IAM"}
+}
+
+func (vm *AddBrokerViewModel) GetSelectedAuthTypeIndex() int {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return int(vm.authType)
+}
+
+func (vm *AddBrokerViewModel) SetSelectedAuthTypeIndex(index int) {
 	vm.mu.Lock()
-	vm.authType = (vm.authType + 1) % 3
-	vm.mu.Unlock()
+	defer vm.mu.Unlock()
+	if index >= 0 && index < 4 {
+		vm.authType = models.AuthType(index)
+		vm.Notify("authType")
+	}
+}
+
+func (vm *AddBrokerViewModel) MoveAuthTypeUp() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	if vm.authType > 0 {
+		vm.authType--
+	} else {
+		vm.authType = 3 // Wrap to AWS IAM
+	}
 	vm.Notify("authType")
+}
+
+func (vm *AddBrokerViewModel) MoveAuthTypeDown() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	if vm.authType < 3 {
+		vm.authType++
+	} else {
+		vm.authType = 0 // Wrap to None
+	}
+	vm.Notify("authType")
+}
+
+func (vm *AddBrokerViewModel) CycleAuthType() {
+	vm.MoveAuthTypeDown()
 }
 
 func (vm *AddBrokerViewModel) GetAuthType() models.AuthType {
@@ -193,6 +231,14 @@ func (vm *AddBrokerViewModel) Validate() error {
 		}
 		if strings.TrimSpace(vm.password) == "" {
 			return errors.Join(ErrValidation, errors.New("password is required for SASL"))
+		}
+	}
+	if vm.authType == models.AuthAWSIAM {
+		if strings.TrimSpace(vm.username) == "" {
+			return errors.Join(ErrValidation, errors.New("username is required for AWS IAM"))
+		}
+		if strings.TrimSpace(vm.password) == "" {
+			return errors.Join(ErrValidation, errors.New("password is required for AWS IAM"))
 		}
 	}
 	return nil
