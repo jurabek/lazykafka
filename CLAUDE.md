@@ -110,8 +110,6 @@ test/             # Test utilities, mocks, and integration tests
 - Include examples where helpful.
 
 
-
-
 # Go Core Development Practices
 
 ## General Responsibilities
@@ -241,73 +239,6 @@ func TestSomething(t *testing.T) {
 - Run `go test -cover` to measure coverage.
 - Aim for high coverage with meaningful tests.
 
-## Integration Testing
-
-### Location and Structure
-- Store integration tests in: `project_folder/tests/integration/feature_package/`
-- Use **testify/suite** for test organization.
-- Use **TestContainers** for running dependencies:
-  - PostgreSQL
-  - Kafka
-  - Redis
-  - Other services
-
-### Integration Test Example
-```go
-type IntegrationTestSuite struct {
-    suite.Suite
-    db        *sql.DB
-    container testcontainers.Container
-}
-
-func (s *IntegrationTestSuite) SetupSuite() {
-    // Setup TestContainers
-}
-
-func (s *IntegrationTestSuite) TearDownSuite() {
-    // Cleanup
-}
-
-func TestIntegrationSuite(t *testing.T) {
-    suite.Run(t, new(IntegrationTestSuite))
-}
-```
-
-## HTTP Handler Testing
-
-### Testing Approach
-1. **Call the function** to get the `http.Handler`:
-   - Pass in all required dependencies (this is a feature).
-   
-2. **Call ServeHTTP** on the handler:
-   - Use a real `http.Request`.
-   - Use `httptest.ResponseRecorder` for capturing response.
-
-3. **Make assertions** about the response:
-   - Check the status code.
-   - Decode the body and verify contents.
-   - Check important headers.
-
-### Example
-```go
-func TestHandler(t *testing.T) {
-    // Setup
-    handler := NewHandler(mockService)
-    req := httptest.NewRequest(http.MethodGet, "/foo/123", nil)
-    rec := httptest.NewRecorder()
-    
-    // Execute
-    handler.ServeHTTP(rec, req)
-    
-    // Assert
-    assert.Equal(t, http.StatusOK, rec.Code)
-    
-    var response Response
-    err := json.NewDecoder(rec.Body).Decode(&response)
-    assert.NoError(t, err)
-    assert.Equal(t, "expected", response.Field)
-}
-```
 
 ## Test Organization
 
