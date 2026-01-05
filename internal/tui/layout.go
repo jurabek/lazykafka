@@ -3,10 +3,13 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/data"
+	"github.com/jurabek/lazykafka/internal/kafka"
 	"github.com/jurabek/lazykafka/internal/models"
+	"github.com/jurabek/lazykafka/internal/secrets"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 	"github.com/jurabek/lazykafka/internal/tui/views"
 )
@@ -29,10 +32,24 @@ type Layout struct {
 	mainVM            *viewmodel.MainViewModel
 	popupManager      *PopupManager
 	brokerStorage     data.BrokerStorage
+	secretStore       secrets.SecretStore
+	brokerConfigs     []models.BrokerConfig
+	statusMessage     string
+	statusMu          sync.RWMutex
 }
 
 func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
-	mainVM := viewmodel.NewMainViewModel(ctx)
+	brokerStorage, _ := data.NewFileBrokerStorage()
+
+	var brokers []models.Broker
+	var configs []models.BrokerConfig
+	if brokerStorage != nil {
+		configs, _ = brokerStorage.Load()
+		brokers = configsToBrokers(configs)
+	}
+
+	clientFactory := kafka.NewFranzClientFactory()
+	mainVM := viewmodel.NewMainViewModel(ctx, brokers, configs, clientFactory)
 
 	brokersView := views.NewBrokersView(mainVM.BrokersVM())
 	topicsView := views.NewTopicsView(mainVM.TopicsVM())
@@ -58,7 +75,9 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 		v.StartListening(g)
 	}
 
-	brokerStorage, _ := data.NewFileBrokerStorage()
+	mainVM.BrokersVM().SetGui(g)
+
+	secretStore := secrets.NewKeyringStore()
 
 	layout := &Layout{
 		sidebarViews:      sidebarViews,
@@ -68,13 +87,38 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 		gui:               g,
 		mainVM:            mainVM,
 		brokerStorage:     brokerStorage,
+		secretStore:       secretStore,
+		brokerConfigs:     configs,
 	}
+
+	mainVM.SetOnError(func(err error) {
+		layout.SetStatusMessage(err.Error())
+	})
 
 	layout.popupManager = NewPopupManager(g, layout, func(config models.BrokerConfig) {
 		layout.onBrokerAdded(config)
 	})
 
 	return layout
+}
+
+func (l *Layout) SetStatusMessage(msg string) {
+	l.statusMu.Lock()
+	l.statusMessage = msg
+	l.statusMu.Unlock()
+
+	l.gui.Update(func(g *gocui.Gui) error {
+		maxX, maxY := g.Size()
+		helpHeight := 2
+		if v, err := g.View(panelHelp); err == nil {
+			l.renderHelpView(v, maxX, maxY, helpHeight)
+		}
+		return nil
+	})
+}
+
+func (l *Layout) ClearStatusMessage() {
+	l.SetStatusMessage("")
 }
 
 func (l *Layout) Manager(g *gocui.Gui) error {
@@ -175,9 +219,22 @@ func (l *Layout) createHelpView(g *gocui.Gui, maxX, maxY, helpHeight int) error 
 		return err
 	}
 	v.Frame = false
-	v.Clear()
-	fmt.Fprintln(v, " ←/→: switch panel | ↑/k: up | ↓/j: down | 1-4: jump panel | n: new | q: quit")
+	l.renderHelpView(v, maxX, maxY, helpHeight)
 	return nil
+}
+
+func (l *Layout) renderHelpView(v *gocui.View, maxX, maxY, helpHeight int) {
+	v.Clear()
+
+	l.statusMu.RLock()
+	statusMsg := l.statusMessage
+	l.statusMu.RUnlock()
+
+	if statusMsg != "" {
+		fmt.Fprintf(v, " Error: %s\n", statusMsg)
+	} else {
+		fmt.Fprintln(v, " ←/→: switch panel | ↑/k: up | ↓/j: down | 1-4: jump panel | n: new | e: edit config | q: quit")
+	}
 }
 
 func (l *Layout) NextPanel(g *gocui.Gui) {
@@ -232,10 +289,21 @@ func (l *Layout) ClosePopup() {
 
 func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
 	l.mainVM.BrokersVM().AddBrokerConfig(config)
+	l.mainVM.AddBrokerConfig(config)
+	l.brokerConfigs = append(l.brokerConfigs, config)
+
+	if config.AuthType == models.AuthSASL || config.AuthType == models.AuthAWSIAM {
+		if l.secretStore != nil && config.Password != "" {
+			_ = l.secretStore.SaveCredentials(config.Name, config.Username, config.Password)
+		}
+	}
 
 	if l.brokerStorage != nil {
+		configToSave := config
+		configToSave.Password = ""
+
 		configs, _ := l.brokerStorage.Load()
-		configs = append(configs, config)
+		configs = append(configs, configToSave)
 		_ = l.brokerStorage.Save(configs)
 	}
 
@@ -246,4 +314,16 @@ func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
 		}
 		return nil
 	})
+}
+
+func configsToBrokers(configs []models.BrokerConfig) []models.Broker {
+	brokers := make([]models.Broker, len(configs))
+	for i, c := range configs {
+		brokers[i] = models.Broker{
+			ID:      i,
+			Name:    c.Name,
+			Address: c.BootstrapServers,
+		}
+	}
+	return brokers
 }

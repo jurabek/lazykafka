@@ -47,9 +47,7 @@ func NewApp(ctx context.Context) (*App, error) {
 }
 
 func (a *App) Run() error {
-	defer a.gui.Close()
 	defer a.ctx.Done()
-
 	defer slog.Info("App closed")
 
 	if err := a.gui.MainLoop(); err != nil && err != gocui.ErrQuit {

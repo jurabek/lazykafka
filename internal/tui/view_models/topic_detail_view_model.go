@@ -1,10 +1,13 @@
 package viewmodel
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
+	"github.com/jurabek/lazykafka/internal/kafka"
 	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
@@ -23,6 +26,8 @@ type TopicDetailViewModel struct {
 	activeTab       TabType
 	notifyCh        chan types.ChangeEvent
 	commandBindings []*types.CommandBinding
+	kafkaClient     kafka.KafkaClient
+	onError         func(err error)
 }
 
 func NewTopicDetailViewModel() *TopicDetailViewModel {
@@ -82,23 +87,53 @@ func (vm *TopicDetailViewModel) GetName() string {
 	return "topic_detail"
 }
 
+func (vm *TopicDetailViewModel) SetKafkaClient(client kafka.KafkaClient) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.kafkaClient = client
+}
+
+func (vm *TopicDetailViewModel) SetOnError(fn func(err error)) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onError = fn
+}
+
 func (vm *TopicDetailViewModel) SetTopic(topic *models.Topic) {
 	vm.mu.Lock()
 	vm.topic = topic
+	client := vm.kafkaClient
+	onError := vm.onError
 	vm.mu.Unlock()
 
-	if topic != nil {
-		partitions := models.MockPartitions(topic.Name, topic.Partitions)
-		vm.mu.Lock()
-		vm.partitions = partitions
-		vm.mu.Unlock()
-	} else {
+	if topic == nil {
 		vm.mu.Lock()
 		vm.partitions = nil
 		vm.mu.Unlock()
+		vm.Notify(types.FieldItems)
+		return
 	}
 
-	vm.Notify(types.FieldItems)
+	if client == nil {
+		vm.Notify(types.FieldItems)
+		return
+	}
+
+	go func() {
+		partitions, err := client.GetTopicPartitions(context.Background(), topic.Name)
+		if err != nil {
+			slog.Error("failed to load partitions", slog.Any("error", err))
+			if onError != nil {
+				onError(err)
+			}
+			return
+		}
+
+		vm.mu.Lock()
+		vm.partitions = partitions
+		vm.mu.Unlock()
+		vm.Notify(types.FieldItems)
+	}()
 }
 
 func (vm *TopicDetailViewModel) GetTopic() *models.Topic {
@@ -135,9 +170,27 @@ func (vm *TopicDetailViewModel) RenderPartitionsTable(width int) string {
 	}
 
 	var sb strings.Builder
+	t := vm.topic
 
-	headers := []string{"Partition ID", "Message Count", "Start Offset", "End Offset", "Leader", "Replicas"}
-	colWidths := []int{12, 14, 12, 12, 8, 12}
+	topicType := "External"
+	if t.IsInternal {
+		topicType = "Internal"
+	}
+
+	totalReplicas := t.Partitions * t.Replicas
+	isrDisplay := fmt.Sprintf("%d of %d", t.InSyncReplicas, totalReplicas)
+
+	sb.WriteString(fmt.Sprintf("%-20s%-20s%-20s%-20s\n", "Partitions", "Replication Factor", "URP", "In Sync Replicas"))
+	sb.WriteString(fmt.Sprintf("%-20d%-20d%-20d%-20s\n\n", t.Partitions, t.Replicas, t.URP, isrDisplay))
+
+	sb.WriteString(fmt.Sprintf("%-20s%-20s%-20s\n", "Type", "Clean Up Policy", "Message Count"))
+	sb.WriteString(fmt.Sprintf("%-20s%-20s%-20d\n\n", topicType, t.CleanUpPolicy, t.MessageCount))
+
+	sb.WriteString(strings.Repeat("-", 70))
+	sb.WriteString("\n\n")
+
+	headers := []string{"Partition", "Replicas", "First Offset", "Next Offset", "Message Count"}
+	colWidths := []int{12, 12, 14, 14, 14}
 
 	for i, h := range headers {
 		sb.WriteString(fmt.Sprintf("%-*s", colWidths[i], h))
@@ -152,13 +205,12 @@ func (vm *TopicDetailViewModel) RenderPartitionsTable(width int) string {
 
 	for _, p := range vm.partitions {
 		replicas := formatReplicas(p.Replicas)
-		sb.WriteString(fmt.Sprintf("%-*d%-*d%-*d%-*d%-*d%-*s\n",
+		sb.WriteString(fmt.Sprintf("%-*d%-*s%-*d%-*d%-*d\n",
 			colWidths[0], p.ID,
-			colWidths[1], p.MessageCount,
+			colWidths[1], replicas,
 			colWidths[2], p.StartOffset,
 			colWidths[3], p.EndOffset,
-			colWidths[4], p.Leader,
-			colWidths[5], replicas,
+			colWidths[4], p.MessageCount,
 		))
 	}
 

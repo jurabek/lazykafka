@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/jurabek/lazykafka/internal/kafka"
 	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
@@ -13,21 +14,30 @@ import (
 type MainViewModel struct {
 	mu sync.RWMutex
 
-	brokersVM                *BrokersViewModel
-	topicsVM                 *TopicsViewModel
-	consumerGroupsVM         *ConsumerGroupsViewModel
-	schemaRegistryVM         *SchemaRegistryViewModel
-	topicDetailVM            *TopicDetailViewModel
-	consumerGroupDetailVM    *ConsumerGroupDetailViewModel
-	schemaRegistryDetailVM   *SchemaRegistryDetailViewModel
+	brokersVM              *BrokersViewModel
+	topicsVM               *TopicsViewModel
+	consumerGroupsVM       *ConsumerGroupsViewModel
+	schemaRegistryVM       *SchemaRegistryViewModel
+	topicDetailVM          *TopicDetailViewModel
+	consumerGroupDetailVM  *ConsumerGroupDetailViewModel
+	schemaRegistryDetailVM *SchemaRegistryDetailViewModel
 
 	notifyCh chan types.ChangeEvent
 	ctx      context.Context
+
+	clientFactory kafka.ClientFactory
+	activeClient  kafka.KafkaClient
+	brokerConfigs []models.BrokerConfig
+	onError       func(err error)
 }
 
 // NewMainViewModel creates a new MainViewModel with all child ViewModels
-func NewMainViewModel(ctx context.Context) *MainViewModel {
-	brokers := models.MockBrokers()
+func NewMainViewModel(
+	ctx context.Context,
+	brokers []models.Broker,
+	configs []models.BrokerConfig,
+	factory kafka.ClientFactory,
+) *MainViewModel {
 	topics := []models.Topic{}
 	consumerGroups := []models.ConsumerGroup{}
 	schemaRegistries := []models.SchemaRegistry{}
@@ -42,6 +52,8 @@ func NewMainViewModel(ctx context.Context) *MainViewModel {
 		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
 		notifyCh:               make(chan types.ChangeEvent),
 		ctx:                    ctx,
+		clientFactory:          factory,
+		brokerConfigs:          configs,
 	}
 
 	vm.startBrokerSubscription()
@@ -55,6 +67,14 @@ func NewMainViewModel(ctx context.Context) *MainViewModel {
 	}
 
 	return vm
+}
+
+func (vm *MainViewModel) SetOnError(fn func(err error)) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onError = fn
+	vm.topicsVM.SetOnError(fn)
+	vm.topicDetailVM.SetOnError(fn)
 }
 
 // startBrokerSubscription listens to BrokersViewModel changes and triggers dependent loads
@@ -97,8 +117,58 @@ func (vm *MainViewModel) setupSchemaRegistrySelectionCallback() {
 	})
 }
 
+func (vm *MainViewModel) getConfigForBroker(broker *models.Broker) *models.BrokerConfig {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	for i := range vm.brokerConfigs {
+		if vm.brokerConfigs[i].Name == broker.Name {
+			return &vm.brokerConfigs[i]
+		}
+	}
+	return nil
+}
+
 // loadDependentData triggers async reload of all dependent ViewModels
 func (vm *MainViewModel) loadDependentData(broker *models.Broker) {
+	vm.mu.Lock()
+	if vm.activeClient != nil {
+		vm.activeClient.Close()
+		vm.activeClient = nil
+	}
+	factory := vm.clientFactory
+	onError := vm.onError
+	vm.mu.Unlock()
+
+	config := vm.getConfigForBroker(broker)
+	if config == nil || factory == nil {
+		return
+	}
+
+	client, err := factory.NewClient(*config)
+	if err != nil {
+		slog.Error("failed to create kafka client", slog.Any("error", err))
+		if onError != nil {
+			onError(err)
+		}
+		return
+	}
+
+	if err := client.Connect(vm.ctx); err != nil {
+		slog.Error("failed to connect to kafka", slog.Any("error", err))
+		if onError != nil {
+			onError(err)
+		}
+		client.Close()
+		return
+	}
+
+	vm.mu.Lock()
+	vm.activeClient = client
+	vm.mu.Unlock()
+
+	vm.topicsVM.SetKafkaClient(client)
+	vm.topicDetailVM.SetKafkaClient(client)
+
 	vm.topicsVM.LoadForBroker(broker)
 	vm.consumerGroupsVM.LoadForBroker(broker)
 	vm.schemaRegistryVM.LoadForBroker(broker)
@@ -138,4 +208,10 @@ func (vm *MainViewModel) ConsumerGroupDetailVM() *ConsumerGroupDetailViewModel {
 
 func (vm *MainViewModel) SchemaRegistryDetailVM() *SchemaRegistryDetailViewModel {
 	return vm.schemaRegistryDetailVM
+}
+
+func (vm *MainViewModel) AddBrokerConfig(config models.BrokerConfig) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.brokerConfigs = append(vm.brokerConfigs, config)
 }

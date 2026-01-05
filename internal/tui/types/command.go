@@ -3,6 +3,7 @@ package types
 import "fmt"
 
 var ErrNoSelection = fmt.Errorf("no item selected")
+var ErrRestartApp = fmt.Errorf("restart app")
 
 type CommandFunc func() error
 

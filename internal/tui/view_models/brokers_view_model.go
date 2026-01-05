@@ -2,6 +2,9 @@ package viewmodel
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"github.com/jroimartin/gocui"
@@ -15,6 +18,7 @@ type BrokersViewModel struct {
 	selectedIndex   int
 	notifyCh        chan types.ChangeEvent
 	commandBindings []*types.CommandBinding
+	gui             *gocui.Gui
 }
 
 func NewBrokersViewModel(brokers []models.Broker) *BrokersViewModel {
@@ -85,12 +89,14 @@ func (vm *BrokersViewModel) MoveDown() error {
 func (vm *BrokersViewModel) initCommandBindings() {
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
+	openEditor := types.NewCommand(vm.OpenConfigInEditor)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+		{Key: 'e', Cmd: openEditor},
 	}
 }
 
@@ -104,7 +110,7 @@ func (vm *BrokersViewModel) GetDisplayItems() []string {
 
 	items := make([]string, len(vm.brokers))
 	for i, b := range vm.brokers {
-		items[i] = fmt.Sprintf("%d: %s:%d", b.ID, b.Host, b.Port)
+		items[i] = fmt.Sprintf("%s (%s)", b.Name, b.Address)
 	}
 	return items
 }
@@ -140,11 +146,36 @@ func (vm *BrokersViewModel) LoadBrokers(brokers []models.Broker) {
 func (vm *BrokersViewModel) AddBrokerConfig(config models.BrokerConfig) {
 	vm.mu.Lock()
 	newBroker := models.Broker{
-		ID:   len(vm.brokers),
-		Host: config.BootstrapServers,
-		Port: 9092,
+		ID:      len(vm.brokers),
+		Name:    config.Name,
+		Address: config.BootstrapServers,
 	}
 	vm.brokers = append(vm.brokers, newBroker)
 	vm.mu.Unlock()
 	vm.Notify(types.FieldItems)
+}
+
+func (vm *BrokersViewModel) SetGui(gui *gocui.Gui) {
+	vm.gui = gui
+}
+
+func (vm *BrokersViewModel) OpenConfigInEditor() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(homeDir, ".lazykafka", "brokers.json")
+
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+
+	cmd := exec.Command(editor, configPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }

@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(go build:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(go test:*)",
+      "Bash(docker ps:*)",
+      "Bash(go doc:*)"
     ]
   }
 }

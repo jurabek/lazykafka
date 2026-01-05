@@ -1,24 +1,32 @@
 package models
 
 type Broker struct {
-	ID   int
-	Host string
-	Port int
+	ID      int
+	Name    string
+	Address string
 }
 
 type Topic struct {
-	Name       string
-	Partitions int
-	Replicas   int
+	Name            string
+	Partitions      int
+	Replicas        int
+	InSyncReplicas  int
+	URP             int
+	SegmentSize     int64
+	SegmentCount    int
+	CleanUpPolicy   string
+	MessageCount    int64
+	IsInternal      bool
 }
 
 type Partition struct {
-	ID           int
-	MessageCount int64
-	StartOffset  int64
-	EndOffset    int64
-	Leader       int
-	Replicas     []int
+	ID             int
+	MessageCount   int64
+	StartOffset    int64
+	EndOffset      int64
+	Leader         int
+	Replicas       []int
+	InSyncReplicas []int
 }
 
 type ConsumerGroup struct {
@@ -42,11 +50,7 @@ type SchemaRegistry struct {
 }
 
 func MockBrokers() []Broker {
-	return []Broker{
-		{ID: 0, Host: "kafka-broker-0.local", Port: 9092},
-		{ID: 1, Host: "kafka-broker-1.local", Port: 9092},
-		{ID: 2, Host: "kafka-broker-2.local", Port: 9092},
-	}
+	return []Broker{}
 }
 
 func MockTopics() []Topic {

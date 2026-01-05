@@ -2,12 +2,15 @@ package viewmodel
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
+
+var bootstrapServersPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.-]*:\d{1,5}(,[a-zA-Z0-9][a-zA-Z0-9.-]*:\d{1,5})*$`)
 
 const (
 	StepName             = 0
@@ -222,8 +225,12 @@ func (vm *AddBrokerViewModel) Validate() error {
 	if strings.TrimSpace(vm.name) == "" {
 		return errors.Join(ErrValidation, errors.New("name is required"))
 	}
-	if strings.TrimSpace(vm.bootstrapServers) == "" {
+	servers := strings.TrimSpace(vm.bootstrapServers)
+	if servers == "" {
 		return errors.Join(ErrValidation, errors.New("bootstrap servers is required"))
+	}
+	if !bootstrapServersPattern.MatchString(servers) {
+		return errors.Join(ErrValidation, errors.New("invalid format, use host:port or host:port,host:port"))
 	}
 	if vm.authType == models.AuthSASL {
 		if strings.TrimSpace(vm.username) == "" {

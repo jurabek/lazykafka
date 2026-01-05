@@ -1,10 +1,13 @@
 package viewmodel
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/kafka"
 	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
@@ -18,6 +21,8 @@ type TopicsViewModel struct {
 	notifyCh           chan types.ChangeEvent
 	commandBindings    []*types.CommandBinding
 	onSelectionChanged SelectionChangedFunc
+	kafkaClient        kafka.KafkaClient
+	onError            func(err error)
 }
 
 func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
@@ -149,11 +154,37 @@ func (vm *TopicsViewModel) LoadTopics(topics []models.Topic) {
 	vm.selectedIndex = -1
 }
 
-// LoadForBroker loads topics for the given broker asynchronously
+func (vm *TopicsViewModel) SetKafkaClient(client kafka.KafkaClient) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.kafkaClient = client
+}
+
+func (vm *TopicsViewModel) SetOnError(fn func(err error)) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onError = fn
+}
+
 func (vm *TopicsViewModel) LoadForBroker(broker *models.Broker) {
+	vm.mu.RLock()
+	client := vm.kafkaClient
+	onError := vm.onError
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return
+	}
+
 	go func() {
-		// TODO: Replace with actual Kafka client call to fetch topics for broker
-		topics := models.MockTopics()
+		topics, err := client.ListTopics(context.Background())
+		if err != nil {
+			slog.Error("failed to load topics", slog.Any("error", err))
+			if onError != nil {
+				onError(err)
+			}
+			return
+		}
 
 		vm.LoadTopics(topics)
 		vm.Notify(types.FieldItems)
