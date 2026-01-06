@@ -16,8 +16,9 @@ const (
 	StepName             = 0
 	StepBootstrapServers = 1
 	StepAuthType         = 2
-	StepUsername         = 3
-	StepPassword         = 4
+	StepSASLMechanism    = 3
+	StepUsername         = 4
+	StepPassword         = 5
 )
 
 var ErrValidation = errors.New("validation error")
@@ -27,10 +28,11 @@ type AddBrokerViewModel struct {
 	name             string
 	bootstrapServers string
 	authType         models.AuthType
+	saslMechanism    models.SASLMechanism
 	username         string
 	password         string
 	currentStep      int
-	notifyCh         chan types.ChangeEvent
+	onChange         types.OnChangeFunc
 	onSubmit         func(config models.BrokerConfig)
 	onCancel         func()
 }
@@ -39,20 +41,18 @@ func NewAddBrokerViewModel(onSubmit func(models.BrokerConfig), onCancel func()) 
 	return &AddBrokerViewModel{
 		currentStep: StepName,
 		authType:    models.AuthNone,
-		notifyCh:    make(chan types.ChangeEvent, 1),
 		onSubmit:    onSubmit,
 		onCancel:    onCancel,
 	}
 }
 
-func (vm *AddBrokerViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *AddBrokerViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *AddBrokerViewModel) Notify(fieldName string) {
-	select {
-	case vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}:
-	default:
+func (vm *AddBrokerViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
 	}
 }
 
@@ -72,6 +72,8 @@ func (vm *AddBrokerViewModel) GetStepTitle() string {
 		return "Bootstrap servers:"
 	case StepAuthType:
 		return "Auth type (↑↓ to select, Enter to confirm):"
+	case StepSASLMechanism:
+		return "SASL mechanism (↑↓ to select, Enter to confirm):"
 	case StepUsername:
 		return "Username:"
 	case StepPassword:
@@ -90,11 +92,13 @@ func (vm *AddBrokerViewModel) NextStep() bool {
 	case StepBootstrapServers:
 		vm.currentStep = StepAuthType
 	case StepAuthType:
-		if vm.authType == models.AuthSASL || vm.authType == models.AuthAWSIAM {
-			vm.currentStep = StepUsername
+		if vm.authType == models.AuthSASL {
+			vm.currentStep = StepSASLMechanism
 		} else {
 			return true // done, submit
 		}
+	case StepSASLMechanism:
+		vm.currentStep = StepUsername
 	case StepUsername:
 		vm.currentStep = StepPassword
 	case StepPassword:
@@ -112,15 +116,21 @@ func (vm *AddBrokerViewModel) PrevStep() {
 		vm.currentStep = StepName
 	case StepAuthType:
 		vm.currentStep = StepBootstrapServers
-	case StepUsername:
+	case StepSASLMechanism:
 		vm.currentStep = StepAuthType
+	case StepUsername:
+		vm.currentStep = StepSASLMechanism
 	case StepPassword:
 		vm.currentStep = StepUsername
 	}
 }
 
 func (vm *AddBrokerViewModel) GetAuthTypeOptions() []string {
-	return []string{"None", "SASL", "SSL", "AWS IAM"}
+	return []string{"None", "SASL"}
+}
+
+func (vm *AddBrokerViewModel) GetSASLMechanismOptions() []string {
+	return []string{"PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER"}
 }
 
 func (vm *AddBrokerViewModel) GetSelectedAuthTypeIndex() int {
@@ -132,9 +142,9 @@ func (vm *AddBrokerViewModel) GetSelectedAuthTypeIndex() int {
 func (vm *AddBrokerViewModel) SetSelectedAuthTypeIndex(index int) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
-	if index >= 0 && index < 4 {
+	if index >= 0 && index < 2 {
 		vm.authType = models.AuthType(index)
-		vm.Notify("authType")
+		vm.notifyChange("authType")
 	}
 }
 
@@ -144,20 +154,54 @@ func (vm *AddBrokerViewModel) MoveAuthTypeUp() {
 	if vm.authType > 0 {
 		vm.authType--
 	} else {
-		vm.authType = 3 // Wrap to AWS IAM
+		vm.authType = 1 // Wrap to SASL
 	}
-	vm.Notify("authType")
+	vm.notifyChange("authType")
 }
 
 func (vm *AddBrokerViewModel) MoveAuthTypeDown() {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
-	if vm.authType < 3 {
+	if vm.authType < 1 {
 		vm.authType++
 	} else {
 		vm.authType = 0 // Wrap to None
 	}
-	vm.Notify("authType")
+	vm.notifyChange("authType")
+}
+
+func (vm *AddBrokerViewModel) GetSelectedSASLMechanismIndex() int {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return int(vm.saslMechanism)
+}
+
+func (vm *AddBrokerViewModel) MoveSASLMechanismUp() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	if vm.saslMechanism > 0 {
+		vm.saslMechanism--
+	} else {
+		vm.saslMechanism = 3 // Wrap to OAUTHBEARER
+	}
+	vm.notifyChange("saslMechanism")
+}
+
+func (vm *AddBrokerViewModel) MoveSASLMechanismDown() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	if vm.saslMechanism < 3 {
+		vm.saslMechanism++
+	} else {
+		vm.saslMechanism = 0 // Wrap to PLAIN
+	}
+	vm.notifyChange("saslMechanism")
+}
+
+func (vm *AddBrokerViewModel) GetSASLMechanism() models.SASLMechanism {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.saslMechanism
 }
 
 func (vm *AddBrokerViewModel) CycleAuthType() {
@@ -240,14 +284,6 @@ func (vm *AddBrokerViewModel) Validate() error {
 			return errors.Join(ErrValidation, errors.New("password is required for SASL"))
 		}
 	}
-	if vm.authType == models.AuthAWSIAM {
-		if strings.TrimSpace(vm.username) == "" {
-			return errors.Join(ErrValidation, errors.New("username is required for AWS IAM"))
-		}
-		if strings.TrimSpace(vm.password) == "" {
-			return errors.Join(ErrValidation, errors.New("password is required for AWS IAM"))
-		}
-	}
 	return nil
 }
 
@@ -261,6 +297,7 @@ func (vm *AddBrokerViewModel) Submit() error {
 		Name:             strings.TrimSpace(vm.name),
 		BootstrapServers: strings.TrimSpace(vm.bootstrapServers),
 		AuthType:         vm.authType,
+		SASLMechanism:    vm.saslMechanism,
 		Username:         strings.TrimSpace(vm.username),
 		Password:         strings.TrimSpace(vm.password),
 	}

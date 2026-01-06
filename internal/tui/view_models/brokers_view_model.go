@@ -12,31 +12,34 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
+type BrokerSelectionChangedFunc func(broker *models.Broker)
+
 type BrokersViewModel struct {
-	mu              sync.RWMutex
-	brokers         []models.Broker
-	selectedIndex   int
-	notifyCh        chan types.ChangeEvent
-	commandBindings []*types.CommandBinding
-	gui             *gocui.Gui
+	mu                 sync.RWMutex
+	brokers            []models.Broker
+	selectedIndex      int
+	onChange           types.OnChangeFunc
+	commandBindings    []*types.CommandBinding
+	gui                *gocui.Gui
+	onSelectionChanged BrokerSelectionChangedFunc
 }
 
-func NewBrokersViewModel(brokers []models.Broker) *BrokersViewModel {
+func NewBrokersViewModel() *BrokersViewModel {
 	vm := &BrokersViewModel{
-		brokers:       brokers,
-		selectedIndex: 0,
-		notifyCh:      make(chan types.ChangeEvent),
+		selectedIndex: -1,
 	}
 	vm.initCommandBindings()
 	return vm
 }
 
-func (vm *BrokersViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *BrokersViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *BrokersViewModel) Notify(fieldName string) {
-	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
+func (vm *BrokersViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
+	}
 }
 
 func (vm *BrokersViewModel) GetSelectedIndex() int {
@@ -49,11 +52,22 @@ func (vm *BrokersViewModel) SetSelectedIndex(index int) {
 	vm.mu.Lock()
 	if index >= 0 && index < len(vm.brokers) {
 		vm.selectedIndex = index
+		broker := &vm.brokers[index]
+		callback := vm.onSelectionChanged
 		vm.mu.Unlock()
-		vm.Notify(types.FieldSelectedIndex)
+		vm.notifyChange(types.FieldSelectedIndex)
+		if callback != nil {
+			callback(broker)
+		}
 		return
 	}
 	vm.mu.Unlock()
+}
+
+func (vm *BrokersViewModel) SetOnSelectionChanged(fn BrokerSelectionChangedFunc) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.onSelectionChanged = fn
 }
 
 func (vm *BrokersViewModel) GetItemCount() int {
@@ -66,8 +80,13 @@ func (vm *BrokersViewModel) MoveUp() error {
 	vm.mu.Lock()
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
+		broker := &vm.brokers[vm.selectedIndex]
+		callback := vm.onSelectionChanged
 		vm.mu.Unlock()
-		vm.Notify(types.FieldSelectedIndex)
+		vm.notifyChange(types.FieldSelectedIndex)
+		if callback != nil {
+			callback(broker)
+		}
 		return nil
 	}
 	vm.mu.Unlock()
@@ -78,8 +97,13 @@ func (vm *BrokersViewModel) MoveDown() error {
 	vm.mu.Lock()
 	if vm.selectedIndex < len(vm.brokers)-1 {
 		vm.selectedIndex++
+		broker := &vm.brokers[vm.selectedIndex]
+		callback := vm.onSelectionChanged
 		vm.mu.Unlock()
-		vm.Notify(types.FieldSelectedIndex)
+		vm.notifyChange(types.FieldSelectedIndex)
+		if callback != nil {
+			callback(broker)
+		}
 		return nil
 	}
 	vm.mu.Unlock()
@@ -133,14 +157,14 @@ func (vm *BrokersViewModel) GetSelectedBroker() *models.Broker {
 	return nil
 }
 
-func (vm *BrokersViewModel) LoadBrokers(brokers []models.Broker) {
+func (vm *BrokersViewModel) Load(brokers []models.Broker) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
-
 	vm.brokers = brokers
-	if vm.selectedIndex >= len(brokers) {
-		vm.selectedIndex = 0
-	}
+	vm.selectedIndex = -1
+	vm.mu.Unlock()
+
+	vm.notifyChange(types.FieldItems)
+	vm.SetSelectedIndex(0)
 }
 
 func (vm *BrokersViewModel) AddBrokerConfig(config models.BrokerConfig) {
@@ -152,7 +176,7 @@ func (vm *BrokersViewModel) AddBrokerConfig(config models.BrokerConfig) {
 	}
 	vm.brokers = append(vm.brokers, newBroker)
 	vm.mu.Unlock()
-	vm.Notify(types.FieldItems)
+	vm.notifyChange(types.FieldItems)
 }
 
 func (vm *BrokersViewModel) SetGui(gui *gocui.Gui) {

@@ -3,8 +3,7 @@ package viewmodel
 import "github.com/jurabek/lazykafka/internal/tui/types"
 
 type BaseViewModel interface {
-	types.Notifier
-
+	SetOnChange(fn types.OnChangeFunc)
 	GetSelectedIndex() int
 	SetSelectedIndex(index int)
 	GetItemCount() int

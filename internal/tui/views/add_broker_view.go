@@ -49,9 +49,12 @@ func (e *wizardEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Mod
 		return
 	}
 
-	// Prevent text input during auth type selection
-	if e.view != nil && e.view.viewModel.GetCurrentStep() == viewmodel.StepAuthType {
-		return
+	// Prevent text input during list selection steps
+	if e.view != nil {
+		step := e.view.viewModel.GetCurrentStep()
+		if step == viewmodel.StepAuthType || step == viewmodel.StepSASLMechanism {
+			return
+		}
 	}
 
 	gocui.DefaultEditor.Edit(v, key, ch, mod)
@@ -85,9 +88,12 @@ func (v *AddBrokerView) render() error {
 	// Calculate dynamic height
 	step := v.viewModel.GetCurrentStep()
 	var wizardHeight int
-	if step == viewmodel.StepAuthType {
+	switch step {
+	case viewmodel.StepAuthType:
+		wizardHeight = 4 // 2 options + title + padding
+	case viewmodel.StepSASLMechanism:
 		wizardHeight = 6 // 4 options + title + padding
-	} else {
+	default:
 		wizardHeight = 2 // standard input height
 	}
 
@@ -111,12 +117,16 @@ func (v *AddBrokerView) render() error {
 	}
 
 	// Handle different step rendering
-	if step == viewmodel.StepAuthType {
+	switch step {
+	case viewmodel.StepAuthType:
 		v.renderAuthTypeList(inputView)
-		v.gui.Cursor = false // Hide cursor for list selection
-	} else {
-		inputView.SetCursor(0, 0) // Position cursor at the start
-		v.gui.Cursor = true       // Show cursor for text input
+		v.gui.Cursor = false
+	case viewmodel.StepSASLMechanism:
+		v.renderSASLMechanismList(inputView)
+		v.gui.Cursor = false
+	default:
+		inputView.SetCursor(0, 0)
+		v.gui.Cursor = true
 		if step == viewmodel.StepPassword {
 			inputView.Mask = '*'
 		} else {
@@ -149,8 +159,7 @@ func (v *AddBrokerView) handleEsc() {
 func (v *AddBrokerView) handleEnter() {
 	step := v.viewModel.GetCurrentStep()
 
-	if step == viewmodel.StepAuthType {
-		// Don't cycle, just confirm selection and move to next step
+	if step == viewmodel.StepAuthType || step == viewmodel.StepSASLMechanism {
 		if v.viewModel.NextStep() {
 			_ = v.viewModel.Submit()
 		} else {
@@ -170,17 +179,25 @@ func (v *AddBrokerView) handleEnter() {
 
 func (v *AddBrokerView) handleArrowUp() {
 	step := v.viewModel.GetCurrentStep()
-	if step == viewmodel.StepAuthType {
+	switch step {
+	case viewmodel.StepAuthType:
 		v.viewModel.MoveAuthTypeUp()
 		v.updateAuthDisplay()
+	case viewmodel.StepSASLMechanism:
+		v.viewModel.MoveSASLMechanismUp()
+		v.updateSASLMechanismDisplay()
 	}
 }
 
 func (v *AddBrokerView) handleArrowDown() {
 	step := v.viewModel.GetCurrentStep()
-	if step == viewmodel.StepAuthType {
+	switch step {
+	case viewmodel.StepAuthType:
 		v.viewModel.MoveAuthTypeDown()
 		v.updateAuthDisplay()
+	case viewmodel.StepSASLMechanism:
+		v.viewModel.MoveSASLMechanismDown()
+		v.updateSASLMechanismDisplay()
 	}
 }
 
@@ -196,6 +213,28 @@ func (v *AddBrokerView) renderAuthTypeList(inputView *gocui.View) {
 		}
 		fmt.Fprintf(inputView, "%s%s\n", prefix, option)
 	}
+}
+
+func (v *AddBrokerView) renderSASLMechanismList(inputView *gocui.View) {
+	inputView.Clear()
+	options := v.viewModel.GetSASLMechanismOptions()
+	selectedIdx := v.viewModel.GetSelectedSASLMechanismIndex()
+
+	for i, option := range options {
+		prefix := "  "
+		if i == selectedIdx {
+			prefix = "> "
+		}
+		fmt.Fprintf(inputView, "%s%s\n", prefix, option)
+	}
+}
+
+func (v *AddBrokerView) updateSASLMechanismDisplay() {
+	inputView, err := v.gui.View(wizardInput)
+	if err != nil {
+		return
+	}
+	v.renderSASLMechanismList(inputView)
 }
 
 func (v *AddBrokerView) saveCurrentValue() {

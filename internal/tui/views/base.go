@@ -14,7 +14,7 @@ type View interface {
 	SetBounds(x0, y0, x1, y1 int)
 	SetActive(active bool)
 	IsActive() bool
-	StartListening(g *gocui.Gui)
+	SetupCallbacks(g *gocui.Gui)
 }
 
 type BaseView struct {

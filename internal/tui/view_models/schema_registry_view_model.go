@@ -15,38 +15,37 @@ type SchemaRegistryViewModel struct {
 	mu                 sync.RWMutex
 	schemaRegistries   []models.SchemaRegistry
 	selectedIndex      int
-	notifyCh           chan types.ChangeEvent
+	onChange           types.OnChangeFunc
 	commandBindings    []*types.CommandBinding
 	onSelectionChanged SRSelectionChangedFunc
 }
 
-func NewSchemaRegistryViewModel(schemaRegistries []models.SchemaRegistry) *SchemaRegistryViewModel {
+func NewSchemaRegistryViewModel() *SchemaRegistryViewModel {
 	vm := &SchemaRegistryViewModel{
-		schemaRegistries: schemaRegistries,
-		selectedIndex:    -1,
-		notifyCh:         make(chan types.ChangeEvent),
+		selectedIndex: -1,
 	}
 
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 
-	commandBindings := []*types.CommandBinding{
+	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 	}
-	vm.commandBindings = commandBindings
 
 	return vm
 }
 
-func (vm *SchemaRegistryViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *SchemaRegistryViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *SchemaRegistryViewModel) Notify(fieldName string) {
-	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
+func (vm *SchemaRegistryViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
+	}
 }
 
 func (vm *SchemaRegistryViewModel) GetSelectedIndex() int {
@@ -57,10 +56,17 @@ func (vm *SchemaRegistryViewModel) GetSelectedIndex() int {
 
 func (vm *SchemaRegistryViewModel) SetSelectedIndex(index int) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if index >= 0 && index < len(vm.schemaRegistries) {
 		vm.selectedIndex = index
+		sr := &vm.schemaRegistries[index]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(sr)
+		}
+		return
 	}
+	vm.mu.Unlock()
 }
 
 func (vm *SchemaRegistryViewModel) GetItemCount() int {
@@ -140,21 +146,19 @@ func (vm *SchemaRegistryViewModel) GetSelectedSchemaRegistry() *models.SchemaReg
 	return nil
 }
 
-func (vm *SchemaRegistryViewModel) LoadSchemaRegistries(schemaRegistries []models.SchemaRegistry) {
+func (vm *SchemaRegistryViewModel) Load(schemaRegistries []models.SchemaRegistry) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
-
 	vm.schemaRegistries = schemaRegistries
 	vm.selectedIndex = -1
+	vm.mu.Unlock()
+
+	vm.notifyChange(types.FieldItems)
+	vm.SetSelectedIndex(0)
 }
 
-// LoadForBroker loads schema registries for the given broker asynchronously
 func (vm *SchemaRegistryViewModel) LoadForBroker(broker *models.Broker) {
 	go func() {
-		// TODO: Replace with actual Schema Registry client call
 		schemaRegistries := models.MockSchemaRegistries()
-
-		vm.LoadSchemaRegistries(schemaRegistries)
-		vm.Notify(types.FieldItems)
+		vm.Load(schemaRegistries)
 	}()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/tui/types"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 )
 
@@ -51,16 +52,14 @@ func (v *ConsumerGroupDetailView) Destroy(g *gocui.Gui) error {
 	return g.DeleteView(v.viewModel.GetName())
 }
 
-func (v *ConsumerGroupDetailView) StartListening(g *gocui.Gui) {
-	go func() {
-		for range v.viewModel.NotifyChannel() {
-			g.Update(func(gui *gocui.Gui) error {
-				view, err := g.View(v.viewModel.GetName())
-				if err != nil {
-					return err
-				}
-				return v.Render(g, view)
-			})
-		}
-	}()
+func (v *ConsumerGroupDetailView) SetupCallbacks(g *gocui.Gui) {
+	v.viewModel.SetOnChange(func(event types.ChangeEvent) {
+		g.Update(func(gui *gocui.Gui) error {
+			view, err := g.View(v.viewModel.GetName())
+			if err != nil {
+				return nil
+			}
+			return v.Render(g, view)
+		})
+	})
 }

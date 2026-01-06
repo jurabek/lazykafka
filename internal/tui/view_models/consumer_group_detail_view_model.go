@@ -13,26 +13,23 @@ type ConsumerGroupDetailViewModel struct {
 	mu              sync.RWMutex
 	consumerGroup   *models.ConsumerGroup
 	offsets         []models.ConsumerGroupOffset
-	notifyCh        chan types.ChangeEvent
+	onChange        types.OnChangeFunc
 	commandBindings []*types.CommandBinding
 }
 
 func NewConsumerGroupDetailViewModel() *ConsumerGroupDetailViewModel {
-	vm := &ConsumerGroupDetailViewModel{
-		notifyCh: make(chan types.ChangeEvent),
-	}
+	vm := &ConsumerGroupDetailViewModel{}
 	vm.commandBindings = []*types.CommandBinding{}
 	return vm
 }
 
-func (vm *ConsumerGroupDetailViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *ConsumerGroupDetailViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *ConsumerGroupDetailViewModel) Notify(fieldName string) {
-	select {
-	case vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}:
-	default:
+func (vm *ConsumerGroupDetailViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
 	}
 }
 
@@ -85,7 +82,7 @@ func (vm *ConsumerGroupDetailViewModel) SetConsumerGroup(cg *models.ConsumerGrou
 		vm.mu.Unlock()
 	}
 
-	vm.Notify(types.FieldItems)
+	vm.notifyChange(types.FieldItems)
 }
 
 func (vm *ConsumerGroupDetailViewModel) GetConsumerGroup() *models.ConsumerGroup {

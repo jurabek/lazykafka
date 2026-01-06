@@ -8,10 +8,7 @@ var ErrRestartApp = fmt.Errorf("restart app")
 type CommandFunc func() error
 
 func NewCommand(f CommandFunc) *Command {
-	return &Command{
-		notifyCh: make(chan struct{}),
-		command:  f,
-	}
+	return &Command{command: f}
 }
 
 type CommandBinding struct {
@@ -22,23 +19,20 @@ type CommandBinding struct {
 }
 
 type Command struct {
-	notifyCh chan struct{}
-	command  CommandFunc
+	command    CommandFunc
+	onExecuted func()
+}
+
+func (c *Command) SetOnExecuted(fn func()) {
+	c.onExecuted = fn
 }
 
 func (c *Command) Execute() error {
-	err := c.command()
-	if err != nil {
+	if err := c.command(); err != nil {
 		return err
 	}
-	c.Notify()
+	if c.onExecuted != nil {
+		c.onExecuted()
+	}
 	return nil
-}
-
-func (c *Command) Notify() {
-	c.notifyCh <- struct{}{}
-}
-
-func (c *Command) NotifyChannel() <-chan struct{} {
-	return c.notifyCh
 }

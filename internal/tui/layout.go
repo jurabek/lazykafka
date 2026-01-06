@@ -36,20 +36,19 @@ type Layout struct {
 	brokerConfigs     []models.BrokerConfig
 	statusMessage     string
 	statusMu          sync.RWMutex
+	initialDataLoaded bool
 }
 
 func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 	brokerStorage, _ := data.NewFileBrokerStorage()
 
-	var brokers []models.Broker
 	var configs []models.BrokerConfig
 	if brokerStorage != nil {
 		configs, _ = brokerStorage.Load()
-		brokers = configsToBrokers(configs)
 	}
 
 	clientFactory := kafka.NewFranzClientFactory()
-	mainVM := viewmodel.NewMainViewModel(ctx, brokers, configs, clientFactory)
+	mainVM := viewmodel.NewMainViewModel(ctx, configs, clientFactory)
 
 	brokersView := views.NewBrokersView(mainVM.BrokersVM())
 	topicsView := views.NewTopicsView(mainVM.TopicsVM())
@@ -69,10 +68,10 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 
 	for i, v := range sidebarViews {
 		v.SetActive(i == 0)
-		v.StartListening(g)
+		v.SetupCallbacks(g)
 	}
 	for _, v := range detailViews {
-		v.StartListening(g)
+		v.SetupCallbacks(g)
 	}
 
 	mainVM.BrokersVM().SetGui(g)
@@ -134,16 +133,25 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 		sidebarX = maxX / 2
 	}
 
-	panelHeight := (maxY - 3) / len(l.sidebarViews)
+	remainingViews := len(l.sidebarViews) - 1 // Exclude brokers from equal height calculation
+	remainingHeight := maxY - helpHeight - 2 - maxBrokersHeight
+	otherPanelHeight := remainingHeight / remainingViews
+
+	brokersY1 := maxBrokersHeight - 1
 
 	for i, view := range l.sidebarViews {
-		y0 := i * panelHeight
-		y1 := y0 + panelHeight - 1
-		if i == len(l.sidebarViews)-1 {
-			y1 = maxY - helpHeight - 2
+		if i == sidebarBrokers {
+			// Brokers get fixed smaller height
+			view.SetBounds(0, 0, sidebarX, brokersY1)
+		} else {
+			// Other views share the remaining height
+			y0 := maxBrokersHeight + (i-1)*otherPanelHeight
+			y1 := y0 + otherPanelHeight - 1
+			if i == len(l.sidebarViews)-1 {
+				y1 = maxY - helpHeight - 2
+			}
+			view.SetBounds(0, y0, sidebarX, y1)
 		}
-
-		view.SetBounds(0, y0, sidebarX, y1)
 
 		created, err := view.Initialize(g)
 		if err != nil {
@@ -172,6 +180,11 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 		if _, err := g.SetCurrentView(activeView.GetViewModel().GetName()); err != nil {
 			return fmt.Errorf("setting current view: %w", err)
 		}
+	}
+
+	if !l.initialDataLoaded {
+		l.initialDataLoaded = true
+		l.mainVM.LoadInitialData()
 	}
 
 	return nil
@@ -292,7 +305,7 @@ func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
 	l.mainVM.AddBrokerConfig(config)
 	l.brokerConfigs = append(l.brokerConfigs, config)
 
-	if config.AuthType == models.AuthSASL || config.AuthType == models.AuthAWSIAM {
+	if config.AuthType == models.AuthSASL {
 		if l.secretStore != nil && config.Password != "" {
 			_ = l.secretStore.SaveCredentials(config.Name, config.Username, config.Password)
 		}
@@ -314,16 +327,4 @@ func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
 		}
 		return nil
 	})
-}
-
-func configsToBrokers(configs []models.BrokerConfig) []models.Broker {
-	brokers := make([]models.Broker, len(configs))
-	for i, c := range configs {
-		brokers[i] = models.Broker{
-			ID:      i,
-			Name:    c.Name,
-			Address: c.BootstrapServers,
-		}
-	}
-	return brokers
 }

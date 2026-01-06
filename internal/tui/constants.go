@@ -7,6 +7,7 @@ const (
 	panelSchemaRegistry = "schema_registry"
 	panelHelp           = "help"
 
-	minTermWidth  = 60
-	minTermHeight = 20
+	minTermWidth     = 60
+	minTermHeight    = 20
+	maxBrokersHeight = 8
 )

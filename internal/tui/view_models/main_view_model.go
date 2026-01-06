@@ -10,7 +10,6 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
-// MainViewModel coordinates global state and manages child ViewModels
 type MainViewModel struct {
 	mu sync.RWMutex
 
@@ -22,7 +21,7 @@ type MainViewModel struct {
 	consumerGroupDetailVM  *ConsumerGroupDetailViewModel
 	schemaRegistryDetailVM *SchemaRegistryDetailViewModel
 
-	notifyCh chan types.ChangeEvent
+	onChange types.OnChangeFunc
 	ctx      context.Context
 
 	clientFactory kafka.ClientFactory
@@ -31,42 +30,47 @@ type MainViewModel struct {
 	onError       func(err error)
 }
 
-// NewMainViewModel creates a new MainViewModel with all child ViewModels
 func NewMainViewModel(
 	ctx context.Context,
-	brokers []models.Broker,
 	configs []models.BrokerConfig,
 	factory kafka.ClientFactory,
 ) *MainViewModel {
-	topics := []models.Topic{}
-	consumerGroups := []models.ConsumerGroup{}
-	schemaRegistries := []models.SchemaRegistry{}
-
 	vm := &MainViewModel{
-		brokersVM:              NewBrokersViewModel(brokers),
-		topicsVM:               NewTopicsViewModel(topics),
-		consumerGroupsVM:       NewConsumerGroupsViewModel(consumerGroups),
-		schemaRegistryVM:       NewSchemaRegistryViewModel(schemaRegistries),
+		brokersVM:              NewBrokersViewModel(),
+		topicsVM:               NewTopicsViewModel(),
+		consumerGroupsVM:       NewConsumerGroupsViewModel(),
+		schemaRegistryVM:       NewSchemaRegistryViewModel(),
 		topicDetailVM:          NewTopicDetailViewModel(),
 		consumerGroupDetailVM:  NewConsumerGroupDetailViewModel(),
 		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
-		notifyCh:               make(chan types.ChangeEvent),
 		ctx:                    ctx,
 		clientFactory:          factory,
 		brokerConfigs:          configs,
 	}
 
-	vm.startBrokerSubscription()
+	vm.setupBrokerSelectionCallback()
 	vm.setupTopicSelectionCallback()
 	vm.setupConsumerGroupSelectionCallback()
 	vm.setupSchemaRegistrySelectionCallback()
 
-	// Trigger initial load for the first broker (index 0)
-	if broker := vm.brokersVM.GetSelectedBroker(); broker != nil {
-		vm.loadDependentData(broker)
-	}
-
 	return vm
+}
+
+func (vm *MainViewModel) LoadInitialData() {
+	brokers := configsToBrokers(vm.brokerConfigs)
+	vm.brokersVM.Load(brokers)
+}
+
+func configsToBrokers(configs []models.BrokerConfig) []models.Broker {
+	brokers := make([]models.Broker, len(configs))
+	for i, c := range configs {
+		brokers[i] = models.Broker{
+			ID:      i,
+			Name:    c.Name,
+			Address: c.BootstrapServers,
+		}
+	}
+	return brokers
 }
 
 func (vm *MainViewModel) SetOnError(fn func(err error)) {
@@ -77,23 +81,11 @@ func (vm *MainViewModel) SetOnError(fn func(err error)) {
 	vm.topicDetailVM.SetOnError(fn)
 }
 
-// startBrokerSubscription listens to BrokersViewModel changes and triggers dependent loads
-func (vm *MainViewModel) startBrokerSubscription() {
-	go func() {
-		for {
-			select {
-			case event := <-vm.brokersVM.NotifyChannel():
-				slog.Info("broker vm event changed", slog.Any("field", event.FieldName))
-				if event.FieldName == types.FieldSelectedIndex {
-					if broker := vm.brokersVM.GetSelectedBroker(); broker != nil {
-						vm.loadDependentData(broker)
-					}
-				}
-			case <-vm.ctx.Done():
-				return
-			}
-		}
-	}()
+func (vm *MainViewModel) setupBrokerSelectionCallback() {
+	vm.brokersVM.SetOnSelectionChanged(func(broker *models.Broker) {
+		slog.Info("broker selection changed", slog.String("broker", broker.Name))
+		vm.loadDependentData(broker)
+	})
 }
 
 // setupTopicSelectionCallback registers callback for topic selection changes
@@ -174,12 +166,8 @@ func (vm *MainViewModel) loadDependentData(broker *models.Broker) {
 	vm.schemaRegistryVM.LoadForBroker(broker)
 }
 
-func (vm *MainViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
-}
-
-func (vm *MainViewModel) Notify(fieldName string) {
-	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
+func (vm *MainViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
 func (vm *MainViewModel) BrokersVM() *BrokersViewModel {

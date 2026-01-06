@@ -18,41 +18,39 @@ type TopicsViewModel struct {
 	mu                 sync.RWMutex
 	topics             []models.Topic
 	selectedIndex      int
-	notifyCh           chan types.ChangeEvent
+	onChange           types.OnChangeFunc
 	commandBindings    []*types.CommandBinding
 	onSelectionChanged SelectionChangedFunc
 	kafkaClient        kafka.KafkaClient
 	onError            func(err error)
 }
 
-func NewTopicsViewModel(topics []models.Topic) *TopicsViewModel {
+func NewTopicsViewModel() *TopicsViewModel {
 	vm := &TopicsViewModel{
-		topics:        topics,
 		selectedIndex: -1,
-		notifyCh:      make(chan types.ChangeEvent),
 	}
 
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 
-	commandBindings := []*types.CommandBinding{
+	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 	}
 
-	vm.commandBindings = commandBindings
 	return vm
-
 }
 
-func (vm *TopicsViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *TopicsViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *TopicsViewModel) Notify(fieldName string) {
-	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
+func (vm *TopicsViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
+	}
 }
 
 func (vm *TopicsViewModel) GetSelectedIndex() int {
@@ -63,10 +61,17 @@ func (vm *TopicsViewModel) GetSelectedIndex() int {
 
 func (vm *TopicsViewModel) SetSelectedIndex(index int) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if index >= 0 && index < len(vm.topics) {
 		vm.selectedIndex = index
+		topic := &vm.topics[index]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(topic)
+		}
+		return
 	}
+	vm.mu.Unlock()
 }
 
 func (vm *TopicsViewModel) GetItemCount() int {
@@ -146,12 +151,14 @@ func (vm *TopicsViewModel) GetSelectedTopic() *models.Topic {
 	return nil
 }
 
-func (vm *TopicsViewModel) LoadTopics(topics []models.Topic) {
+func (vm *TopicsViewModel) Load(topics []models.Topic) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
-
 	vm.topics = topics
 	vm.selectedIndex = -1
+	vm.mu.Unlock()
+
+	vm.notifyChange(types.FieldItems)
+	vm.SetSelectedIndex(0)
 }
 
 func (vm *TopicsViewModel) SetKafkaClient(client kafka.KafkaClient) {
@@ -186,7 +193,7 @@ func (vm *TopicsViewModel) LoadForBroker(broker *models.Broker) {
 			return
 		}
 
-		vm.LoadTopics(topics)
-		vm.Notify(types.FieldItems)
+		vm.Load(topics)
 	}()
 }
+

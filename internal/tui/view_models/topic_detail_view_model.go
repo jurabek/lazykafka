@@ -24,7 +24,7 @@ type TopicDetailViewModel struct {
 	topic           *models.Topic
 	partitions      []models.Partition
 	activeTab       TabType
-	notifyCh        chan types.ChangeEvent
+	onChange        types.OnChangeFunc
 	commandBindings []*types.CommandBinding
 	kafkaClient     kafka.KafkaClient
 	onError         func(err error)
@@ -33,7 +33,6 @@ type TopicDetailViewModel struct {
 func NewTopicDetailViewModel() *TopicDetailViewModel {
 	vm := &TopicDetailViewModel{
 		activeTab: TabPartitions,
-		notifyCh:  make(chan types.ChangeEvent),
 	}
 	vm.initCommandBindings()
 	return vm
@@ -43,14 +42,13 @@ func (vm *TopicDetailViewModel) initCommandBindings() {
 	vm.commandBindings = []*types.CommandBinding{}
 }
 
-func (vm *TopicDetailViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *TopicDetailViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *TopicDetailViewModel) Notify(fieldName string) {
-	select {
-	case vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}:
-	default:
+func (vm *TopicDetailViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
 	}
 }
 
@@ -110,12 +108,12 @@ func (vm *TopicDetailViewModel) SetTopic(topic *models.Topic) {
 		vm.mu.Lock()
 		vm.partitions = nil
 		vm.mu.Unlock()
-		vm.Notify(types.FieldItems)
+		vm.notifyChange(types.FieldItems)
 		return
 	}
 
 	if client == nil {
-		vm.Notify(types.FieldItems)
+		vm.notifyChange(types.FieldItems)
 		return
 	}
 
@@ -132,7 +130,7 @@ func (vm *TopicDetailViewModel) SetTopic(topic *models.Topic) {
 		vm.mu.Lock()
 		vm.partitions = partitions
 		vm.mu.Unlock()
-		vm.Notify(types.FieldItems)
+		vm.notifyChange(types.FieldItems)
 	}()
 }
 
@@ -158,7 +156,7 @@ func (vm *TopicDetailViewModel) SetActiveTab(tab TabType) {
 	vm.mu.Lock()
 	vm.activeTab = tab
 	vm.mu.Unlock()
-	vm.Notify(types.FieldSelectedIndex)
+	vm.notifyChange(types.FieldSelectedIndex)
 }
 
 func (vm *TopicDetailViewModel) RenderPartitionsTable(width int) string {

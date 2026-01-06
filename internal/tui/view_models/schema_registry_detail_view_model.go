@@ -11,26 +11,23 @@ import (
 type SchemaRegistryDetailViewModel struct {
 	mu              sync.RWMutex
 	schema          *models.SchemaRegistry
-	notifyCh        chan types.ChangeEvent
+	onChange        types.OnChangeFunc
 	commandBindings []*types.CommandBinding
 }
 
 func NewSchemaRegistryDetailViewModel() *SchemaRegistryDetailViewModel {
-	vm := &SchemaRegistryDetailViewModel{
-		notifyCh: make(chan types.ChangeEvent),
-	}
+	vm := &SchemaRegistryDetailViewModel{}
 	vm.commandBindings = []*types.CommandBinding{}
 	return vm
 }
 
-func (vm *SchemaRegistryDetailViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *SchemaRegistryDetailViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *SchemaRegistryDetailViewModel) Notify(fieldName string) {
-	select {
-	case vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}:
-	default:
+func (vm *SchemaRegistryDetailViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
 	}
 }
 
@@ -69,7 +66,7 @@ func (vm *SchemaRegistryDetailViewModel) SetSchema(schema *models.SchemaRegistry
 	vm.mu.Lock()
 	vm.schema = schema
 	vm.mu.Unlock()
-	vm.Notify(types.FieldItems)
+	vm.notifyChange(types.FieldItems)
 }
 
 func (vm *SchemaRegistryDetailViewModel) GetSchema() *models.SchemaRegistry {

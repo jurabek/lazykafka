@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/tui/types"
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 )
 
@@ -65,19 +66,22 @@ func (v *SchemaRegistryView) Destroy(g *gocui.Gui) error {
 	return g.DeleteView(v.viewModel.GetName())
 }
 
-func (v *SchemaRegistryView) StartListening(g *gocui.Gui) {
-	for _, binding := range v.viewModel.GetCommandBindings() {
-		cmd := binding.Cmd
-		go func() {
-			for range cmd.NotifyChannel() {
-				g.Update(func(gui *gocui.Gui) error {
-					view, err := g.View(v.viewModel.GetName())
-					if err != nil {
-						return err
-					}
-					return v.Render(g, view)
-				})
+func (v *SchemaRegistryView) SetupCallbacks(g *gocui.Gui) {
+	renderFn := func() {
+		g.Update(func(gui *gocui.Gui) error {
+			view, err := g.View(v.viewModel.GetName())
+			if err != nil {
+				return nil
 			}
-		}()
+			return v.Render(g, view)
+		})
 	}
+
+	for _, binding := range v.viewModel.GetCommandBindings() {
+		binding.Cmd.SetOnExecuted(renderFn)
+	}
+
+	v.viewModel.SetOnChange(func(event types.ChangeEvent) {
+		renderFn()
+	})
 }

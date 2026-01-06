@@ -15,36 +15,35 @@ type ConsumerGroupsViewModel struct {
 	mu                 sync.RWMutex
 	consumerGroups     []models.ConsumerGroup
 	selectedIndex      int
-	notifyCh           chan types.ChangeEvent
+	onChange           types.OnChangeFunc
 	commandBindings    []*types.CommandBinding
 	onSelectionChanged CGSelectionChangedFunc
 }
 
-func NewConsumerGroupsViewModel(consumerGroups []models.ConsumerGroup) *ConsumerGroupsViewModel {
+func NewConsumerGroupsViewModel() *ConsumerGroupsViewModel {
 	vm := &ConsumerGroupsViewModel{
-		consumerGroups: consumerGroups,
-		selectedIndex:  -1,
-		notifyCh:       make(chan types.ChangeEvent),
+		selectedIndex: -1,
 	}
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 
-	commandBindings := []*types.CommandBinding{
+	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 	}
-	vm.commandBindings = commandBindings
 	return vm
 }
 
-func (vm *ConsumerGroupsViewModel) NotifyChannel() <-chan types.ChangeEvent {
-	return vm.notifyCh
+func (vm *ConsumerGroupsViewModel) SetOnChange(fn types.OnChangeFunc) {
+	vm.onChange = fn
 }
 
-func (vm *ConsumerGroupsViewModel) Notify(fieldName string) {
-	vm.notifyCh <- types.ChangeEvent{FieldName: fieldName}
+func (vm *ConsumerGroupsViewModel) notifyChange(fieldName string) {
+	if vm.onChange != nil {
+		vm.onChange(types.ChangeEvent{FieldName: fieldName})
+	}
 }
 
 func (vm *ConsumerGroupsViewModel) GetSelectedIndex() int {
@@ -55,10 +54,17 @@ func (vm *ConsumerGroupsViewModel) GetSelectedIndex() int {
 
 func (vm *ConsumerGroupsViewModel) SetSelectedIndex(index int) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
 	if index >= 0 && index < len(vm.consumerGroups) {
 		vm.selectedIndex = index
+		cg := &vm.consumerGroups[index]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(cg)
+		}
+		return
 	}
+	vm.mu.Unlock()
 }
 
 func (vm *ConsumerGroupsViewModel) GetItemCount() int {
@@ -138,21 +144,19 @@ func (vm *ConsumerGroupsViewModel) GetSelectedConsumerGroup() *models.ConsumerGr
 	return nil
 }
 
-func (vm *ConsumerGroupsViewModel) LoadConsumerGroups(consumerGroups []models.ConsumerGroup) {
+func (vm *ConsumerGroupsViewModel) Load(consumerGroups []models.ConsumerGroup) {
 	vm.mu.Lock()
-	defer vm.mu.Unlock()
-
 	vm.consumerGroups = consumerGroups
 	vm.selectedIndex = -1
+	vm.mu.Unlock()
+
+	vm.notifyChange(types.FieldItems)
+	vm.SetSelectedIndex(0)
 }
 
-// LoadForBroker loads consumer groups for the given broker asynchronously
 func (vm *ConsumerGroupsViewModel) LoadForBroker(broker *models.Broker) {
 	go func() {
-		// TODO: Replace with actual Kafka client call to fetch consumer groups for broker
 		consumerGroups := models.MockConsumerGroups()
-
-		vm.LoadConsumerGroups(consumerGroups)
-		vm.Notify(types.FieldItems)
+		vm.Load(consumerGroups)
 	}()
 }
