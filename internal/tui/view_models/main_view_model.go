@@ -2,6 +2,7 @@ package viewmodel
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -210,7 +211,7 @@ func (vm *MainViewModel) CreateTopic(ctx context.Context, config models.TopicCon
 	vm.mu.RUnlock()
 
 	if client == nil {
-		return nil
+		return fmt.Errorf("no active kafka client")
 	}
 	slog.Info("create topic", slog.Any("config", config))
 
