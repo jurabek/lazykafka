@@ -203,3 +203,16 @@ func (vm *MainViewModel) AddBrokerConfig(config models.BrokerConfig) {
 	defer vm.mu.Unlock()
 	vm.brokerConfigs = append(vm.brokerConfigs, config)
 }
+
+func (vm *MainViewModel) CreateTopic(ctx context.Context, config models.TopicConfig) error {
+	vm.mu.RLock()
+	client := vm.activeClient
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return nil
+	}
+	slog.Info("create topic", slog.Any("config", config))
+
+	return client.CreateTopic(ctx, config)
+}

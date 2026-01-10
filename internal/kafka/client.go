@@ -11,6 +11,7 @@ type KafkaClient interface {
 	Close()
 	ListTopics(ctx context.Context) ([]models.Topic, error)
 	GetTopicPartitions(ctx context.Context, topicName string) ([]models.Partition, error)
+	CreateTopic(ctx context.Context, config models.TopicConfig) error
 }
 
 type ClientFactory interface {

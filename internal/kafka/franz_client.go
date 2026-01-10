@@ -2,6 +2,8 @@ package kafka
 
 import (
 	"context"
+	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/jurabek/lazykafka/internal/models"
@@ -193,4 +195,30 @@ func int32SliceToIntSlice(s []int32) []int {
 		result[i] = int(v)
 	}
 	return result
+}
+
+func (c *franzClient) CreateTopic(ctx context.Context, config models.TopicConfig) error {
+	configs := map[string]*string{
+		"cleanup.policy":      strPtr(config.CleanupPolicy.String()),
+		"min.insync.replicas": strPtr(strconv.Itoa(config.MinInSyncReplicas)),
+	}
+
+	if config.RetentionMs > 0 {
+		configs["retention.ms"] = strPtr(strconv.FormatInt(config.RetentionMs, 10))
+	}
+
+	slog.Info("creating topic", slog.String("name", config.Name),
+		slog.Int("partitions", config.Partitions),
+		slog.Int("replicationFactor", config.ReplicationFactor),
+		slog.Any("configs", configs),
+	)
+	resp, err := c.admin.CreateTopic(ctx, int32(config.Partitions), int16(config.ReplicationFactor), configs, config.Name)
+	if err != nil {
+		return err
+	}
+	return resp.Err
+}
+
+func strPtr(s string) *string {
+	return &s
 }

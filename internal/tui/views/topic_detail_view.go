@@ -8,7 +8,6 @@ import (
 	viewmodel "github.com/jurabek/lazykafka/internal/tui/view_models"
 )
 
-
 type TopicDetailView struct {
 	BaseView
 	viewModel *viewmodel.TopicDetailViewModel
