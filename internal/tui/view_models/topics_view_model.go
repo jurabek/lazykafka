@@ -173,7 +173,15 @@ func (vm *TopicsViewModel) SetOnError(fn func(err error)) {
 	vm.onError = fn
 }
 
-func (vm *TopicsViewModel) LoadForBroker(broker *models.Broker) {
+func (vm *TopicsViewModel) LoadForBroker(_ *models.Broker) {
+	vm.loadTopicsAsync()
+}
+
+func (vm *TopicsViewModel) Reload() {
+	vm.loadTopicsAsync()
+}
+
+func (vm *TopicsViewModel) loadTopicsAsync() {
 	vm.mu.RLock()
 	client := vm.kafkaClient
 	onError := vm.onError
@@ -192,8 +200,6 @@ func (vm *TopicsViewModel) LoadForBroker(broker *models.Broker) {
 			}
 			return
 		}
-
 		vm.Load(topics)
 	}()
 }
-
