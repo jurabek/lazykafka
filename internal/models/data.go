@@ -7,16 +7,16 @@ type Broker struct {
 }
 
 type Topic struct {
-	Name            string
-	Partitions      int
-	Replicas        int
-	InSyncReplicas  int
-	URP             int
-	SegmentSize     int64
-	SegmentCount    int
-	CleanUpPolicy   string
-	MessageCount    int64
-	IsInternal      bool
+	Name           string
+	Partitions     int
+	Replicas       int
+	InSyncReplicas int
+	URP            int
+	SegmentSize    int64
+	SegmentCount   int
+	CleanUpPolicy  string
+	MessageCount   int64
+	IsInternal     bool
 }
 
 type Partition struct {

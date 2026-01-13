@@ -2,6 +2,7 @@ package viewmodel
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -202,4 +203,17 @@ func (vm *MainViewModel) AddBrokerConfig(config models.BrokerConfig) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	vm.brokerConfigs = append(vm.brokerConfigs, config)
+}
+
+func (vm *MainViewModel) CreateTopic(ctx context.Context, config models.TopicConfig) error {
+	vm.mu.RLock()
+	client := vm.activeClient
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return fmt.Errorf("no active kafka client")
+	}
+	slog.Info("create topic", slog.Any("config", config))
+
+	return client.CreateTopic(ctx, config)
 }

@@ -120,6 +120,14 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "new broker",
 			BlockOnPopup: true,
 		},
+		{
+			ViewName:     panelTopics,
+			Key:          'n',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showAddTopicPopup,
+			Description:  "new topic",
+			BlockOnPopup: true,
+		},
 	}
 }
 
@@ -178,4 +186,11 @@ func (h *keyBindingHandler) showAddBrokerPopup() error {
 		return nil
 	}
 	return h.layout.ShowAddBrokerPopup()
+}
+
+func (h *keyBindingHandler) showAddTopicPopup() error {
+	if h.layout.IsPopupActive() {
+		return nil
+	}
+	return h.layout.ShowAddTopicPopup()
 }

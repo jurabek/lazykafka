@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/jroimartin/gocui"
@@ -96,6 +97,8 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 
 	layout.popupManager = NewPopupManager(g, layout, func(config models.BrokerConfig) {
 		layout.onBrokerAdded(config)
+	}, func(config models.TopicConfig) {
+		layout.onTopicAdded(config)
 	})
 
 	return layout
@@ -185,6 +188,10 @@ func (l *Layout) Manager(g *gocui.Gui) error {
 	if !l.initialDataLoaded {
 		l.initialDataLoaded = true
 		l.mainVM.LoadInitialData()
+	}
+
+	if l.popupManager != nil {
+		l.popupManager.BringToTop()
 	}
 
 	return nil
@@ -292,6 +299,14 @@ func (l *Layout) ShowAddBrokerPopup() error {
 	return l.popupManager.ShowAddBrokerPopup()
 }
 
+func (l *Layout) ShowAddTopicPopup() error {
+	return l.popupManager.ShowAddTopicPopup()
+}
+
+func (l *Layout) GetActiveViewIndex() int {
+	return l.activeViewIndex
+}
+
 func (l *Layout) IsPopupActive() bool {
 	return l.popupManager.IsActive()
 }
@@ -324,6 +339,25 @@ func (l *Layout) onBrokerAdded(config models.BrokerConfig) {
 		if view, err := g.View(panelBrokers); err == nil {
 			brokersView := l.sidebarViews[sidebarBrokers]
 			_ = brokersView.Render(g, view)
+		}
+		return nil
+	})
+}
+
+func (l *Layout) onTopicAdded(config models.TopicConfig) {
+	ctx := context.Background()
+	if err := l.mainVM.CreateTopic(ctx, config); err != nil {
+		slog.Error("creating topic failed", slog.Any("error", err))
+		l.SetStatusMessage(err.Error())
+		return
+	}
+
+	l.mainVM.TopicsVM().Reload()
+
+	l.gui.Update(func(g *gocui.Gui) error {
+		if view, err := g.View(panelTopics); err == nil {
+			topicsView := l.sidebarViews[sidebarTopics]
+			_ = topicsView.Render(g, view)
 		}
 		return nil
 	})
