@@ -56,7 +56,7 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 	cgView := views.NewConsumerGroupsView(mainVM.ConsumerGroupsVM())
 	srView := views.NewSchemaRegistryView(mainVM.SchemaRegistryVM())
 
-	topicDetailView := views.NewTopicDetailView(mainVM.TopicDetailVM())
+	topicDetailView := views.NewTopicDetailView(mainVM.TopicDetailVM(), mainVM.MessageBrowserVM())
 	cgDetailView := views.NewConsumerGroupDetailView(mainVM.ConsumerGroupDetailVM())
 	srDetailView := views.NewSchemaRegistryDetailView(mainVM.SchemaRegistryDetailVM())
 

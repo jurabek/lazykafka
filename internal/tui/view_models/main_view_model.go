@@ -19,6 +19,7 @@ type MainViewModel struct {
 	consumerGroupsVM       *ConsumerGroupsViewModel
 	schemaRegistryVM       *SchemaRegistryViewModel
 	topicDetailVM          *TopicDetailViewModel
+	messageBrowserVM       *MessageBrowserViewModel
 	consumerGroupDetailVM  *ConsumerGroupDetailViewModel
 	schemaRegistryDetailVM *SchemaRegistryDetailViewModel
 
@@ -42,6 +43,7 @@ func NewMainViewModel(
 		consumerGroupsVM:       NewConsumerGroupsViewModel(),
 		schemaRegistryVM:       NewSchemaRegistryViewModel(),
 		topicDetailVM:          NewTopicDetailViewModel(),
+		messageBrowserVM:       NewMessageBrowserViewModel(),
 		consumerGroupDetailVM:  NewConsumerGroupDetailViewModel(),
 		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
 		ctx:                    ctx,
@@ -80,6 +82,7 @@ func (vm *MainViewModel) SetOnError(fn func(err error)) {
 	vm.onError = fn
 	vm.topicsVM.SetOnError(fn)
 	vm.topicDetailVM.SetOnError(fn)
+	vm.messageBrowserVM.SetOnError(fn)
 }
 
 func (vm *MainViewModel) setupBrokerSelectionCallback() {
@@ -161,6 +164,7 @@ func (vm *MainViewModel) loadDependentData(broker *models.Broker) {
 
 	vm.topicsVM.SetKafkaClient(client)
 	vm.topicDetailVM.SetKafkaClient(client)
+	vm.messageBrowserVM.SetKafkaClient(client)
 
 	vm.topicsVM.LoadForBroker(broker)
 	vm.consumerGroupsVM.LoadForBroker(broker)
@@ -189,6 +193,10 @@ func (vm *MainViewModel) SchemaRegistryVM() *SchemaRegistryViewModel {
 
 func (vm *MainViewModel) TopicDetailVM() *TopicDetailViewModel {
 	return vm.topicDetailVM
+}
+
+func (vm *MainViewModel) MessageBrowserVM() *MessageBrowserViewModel {
+	return vm.messageBrowserVM
 }
 
 func (vm *MainViewModel) ConsumerGroupDetailVM() *ConsumerGroupDetailViewModel {
