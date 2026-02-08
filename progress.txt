@@ -1,0 +1,99 @@
+# Ralph Progress Log
+Started: Sun Feb  8 01:42:53 PM CET 2026
+---
+
+## Sun Feb  8 01:44:41 PM CET 2026 - US-001
+- Added Message, MessageFilter, and Header structs to internal/models/data.go
+- Created unit tests in internal/models/data_test.go
+- Files changed: internal/models/data.go, internal/models/data_test.go
+- **Learnings for future iterations:**
+  - This codebase uses testify and table-driven tests
+  - Use time.Time for timestamp fields in models
+  - Keep test files adjacent to source files
+---
+
+## Sun Feb  8 01:46:24 PM CET 2026 - US-002
+- Extended KafkaClient interface with message and topic management methods
+- Added stub implementations to franzClient to satisfy interface
+- Files changed: internal/kafka/client.go, internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - franz-go library used for Kafka operations (kgo.Client, kadm.Client)
+  - Interface defined in internal/kafka/client.go, implementation in franz_client.go
+  - Add stub methods when extending interface to keep compilation working
+---
+
+## Sun Feb  8 01:46:59 PM CET 2026 - US-003
+- Implemented ProduceMessage using franz-go ProduceSync
+- Support for empty key/value and headers
+- Files changed: internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - franz-go uses kgo.Record for messages
+  - ProduceSync for synchronous producing, FirstErr() for error handling
+  - Headers use kgo.RecordHeader with []byte values
+---
+
+## Sun Feb  8 01:47:58 PM CET 2026 - US-004
+- Implemented ConsumeMessages with partition filtering (-1 for all, 0-N for specific)
+- Support offset mode: oldest (offset 0) or newest (offset -1)
+- Respect Limit parameter for message count
+- Files changed: internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - ConsumePartitions requires map[string]map[int32]kgo.Offset format
+  - Use PollRecords with limit for bounded consumption
+  - EachRecord iterator for processing fetch results
+  - Store config in franzClient for reusing broker connection info
+---
+
+## Sun Feb  8 01:50:52 PM CET 2026 - US-005
+- Implemented DeleteTopic using franz-go admin API
+- Implemented GetTopicConfig to fetch topic configuration
+- Implemented UpdateTopicConfig to modify topic configuration
+- Handle errors when topic does not exist
+- Files changed: internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - kadm responses use Error() method not Err()
+  - AlterConfigsResponse has Err field not Error() method
+  - DeleteTopics returns (DeleteTopicResponses, error)
+  - Use AlterTopicConfigs with []kadm.AlterConfig for incremental updates
+---
+
+## Sun Feb  8 01:52:07 PM CET 2026 - US-006
+- Created MessageBrowserViewModel with mutex-protected state
+- Added messages slice, selectedIndex, currentFilter fields
+- Command bindings: j/k/arrows for nav, Enter for details, r for refresh
+- LoadMessages, MoveUp/MoveDown, Refresh methods
+- Files changed: internal/tui/view_models/message_browser_view_model.go
+- **Learnings for future iterations:**
+  - View models follow pattern: mutex state, onChange callback, commandBindings
+  - GetTitle includes state info for display
+  - SetKafkaClient/SetOnError for dependency injection
+  - Use goroutines for async loading with proper locking
+---
+
+## Sun Feb  8 01:53:16 PM CET 2026 - US-007
+- Created MessageBrowserView with table display
+- Display format: Partition | Offset | Key | Timestamp | Value preview (truncated)
+- Highlight selected message row with different color
+- Handle empty message list with 'No messages' message
+- Show current topic and filter in view title
+- Files changed: internal/tui/views/message_browser_view.go
+- **Learnings for future iterations:**
+  - Views follow pattern: Initialize, Render, Destroy, SetupCallbacks
+  - Render updates view title dynamically from viewModel
+  - Use g.Update for thread-safe GUI updates
+  - Highlight row with SetCursor and > prefix
+---
+
+## Sun Feb  8 02:11:18 PM CET 2026 - US-008
+- Created MessageDetailViewModel with mutex-protected message state
+- Added scrollPosition for long message scrolling
+- Implemented SetMessage, ScrollUp/ScrollDown, GetDisplayText methods
+- Command bindings: j/k/arrows for scroll, PgUp/PgDn for page scroll, q/Esc to close
+- JSON pretty-printing for message values
+- Files changed: internal/tui/view_models/message_detail_view_model.go
+- **Learnings for future iterations:**
+  - Detail view models use displayLines []string for scrollable content
+  - onClose callback pattern for closing detail views
+  - Use json.Unmarshal + MarshalIndent for pretty-printing JSON
+  - gocui.KeyPgup/gocui.KeyPgdn for page navigation
+---
