@@ -109,3 +109,16 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - SetWrap=false for scrollable detail views
   - OnChangeFunc uses types.ChangeEvent parameter
 ---
+## Sun Feb  8 02:30:00 PM CET 2026 - US-010
+- Created ProduceMessageViewModel with mutex-protected state
+- Added fields: topic, key, value, headers map[string]string, currentField int
+- Implemented SetField, Validate, Clear, NextField/PrevField methods
+- Added field navigation constants (FieldTopic, FieldKey, FieldValue)
+- Added validation error tracking per field
+- Files changed: internal/tui/view_models/produce_message_view_model.go
+- **Learnings for future iterations:**
+  - ErrValidation already exists in add_broker_view_model.go - don't redeclare
+  - Form view models use currentField to track focused input
+  - Headers stored as map[string]string in viewmodel, converted to []Header for submission
+  - Use validation map to track per-field errors for display
+---
