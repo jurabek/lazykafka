@@ -166,6 +166,14 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "new topic",
 			BlockOnPopup: true,
 		},
+		{
+			ViewName:     panelTopics,
+			Key:          'p',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showProduceMessagePopup,
+			Description:  "produce message",
+			BlockOnPopup: true,
+		},
 	}
 }
 
@@ -231,4 +239,22 @@ func (h *keyBindingHandler) showAddTopicPopup() error {
 		return nil
 	}
 	return h.layout.ShowAddTopicPopup()
+}
+
+func (h *keyBindingHandler) showProduceMessagePopup() error {
+	if h.layout.IsPopupActive() {
+		return nil
+	}
+
+	// Get selected topic from TopicsViewModel
+	mainVM := h.layout.MainViewModel()
+	topicsVM := mainVM.TopicsVM()
+	selectedTopic := topicsVM.GetSelectedTopic()
+
+	if selectedTopic == nil {
+		h.layout.SetStatusMessage("No topic selected")
+		return nil
+	}
+
+	return h.layout.ShowProduceMessagePopup(selectedTopic.Name)
 }

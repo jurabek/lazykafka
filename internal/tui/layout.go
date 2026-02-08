@@ -101,6 +101,17 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 		layout.onTopicAdded(config)
 	})
 
+	layout.popupManager.SetOnMessageProduced(func(topic string, key, value string, headers []models.Header) error {
+		ctx := context.Background()
+		if err := layout.mainVM.ProduceMessage(ctx, topic, key, value, headers); err != nil {
+			slog.Error("failed to produce message", "error", err)
+			layout.SetStatusMessage(err.Error())
+			return err
+		}
+		layout.ClearStatusMessage()
+		return nil
+	})
+
 	return layout
 }
 
@@ -329,6 +340,10 @@ func (l *Layout) ShowAddBrokerPopup() error {
 
 func (l *Layout) ShowAddTopicPopup() error {
 	return l.popupManager.ShowAddTopicPopup()
+}
+
+func (l *Layout) ShowProduceMessagePopup(topic string) error {
+	return l.popupManager.ShowProduceMessagePopup(topic)
 }
 
 func (l *Layout) GetActiveViewIndex() int {

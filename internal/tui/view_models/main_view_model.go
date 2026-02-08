@@ -21,6 +21,7 @@ type MainViewModel struct {
 	topicDetailVM          *TopicDetailViewModel
 	messageBrowserVM       *MessageBrowserViewModel
 	messageDetailVM        *MessageDetailViewModel
+	produceMessageVM       *ProduceMessageViewModel
 	consumerGroupDetailVM  *ConsumerGroupDetailViewModel
 	schemaRegistryDetailVM *SchemaRegistryDetailViewModel
 
@@ -46,6 +47,7 @@ func NewMainViewModel(
 		topicDetailVM:          NewTopicDetailViewModel(),
 		messageBrowserVM:       NewMessageBrowserViewModel(),
 		messageDetailVM:        NewMessageDetailViewModel(),
+		produceMessageVM:       NewProduceMessageViewModel(nil, nil),
 		consumerGroupDetailVM:  NewConsumerGroupDetailViewModel(),
 		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
 		ctx:                    ctx,
@@ -205,6 +207,10 @@ func (vm *MainViewModel) MessageDetailVM() *MessageDetailViewModel {
 	return vm.messageDetailVM
 }
 
+func (vm *MainViewModel) ProduceMessageVM() *ProduceMessageViewModel {
+	return vm.produceMessageVM
+}
+
 func (vm *MainViewModel) ConsumerGroupDetailVM() *ConsumerGroupDetailViewModel {
 	return vm.consumerGroupDetailVM
 }
@@ -230,4 +236,16 @@ func (vm *MainViewModel) CreateTopic(ctx context.Context, config models.TopicCon
 	slog.Info("create topic", slog.Any("config", config))
 
 	return client.CreateTopic(ctx, config)
+}
+
+func (vm *MainViewModel) ProduceMessage(ctx context.Context, topic string, key, value string, headers []models.Header) error {
+	vm.mu.RLock()
+	client := vm.activeClient
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return fmt.Errorf("no active kafka client")
+	}
+
+	return client.ProduceMessage(ctx, topic, key, value, headers)
 }

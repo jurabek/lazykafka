@@ -8,17 +8,20 @@ import (
 )
 
 type PopupManager struct {
-	gui             *gocui.Gui
-	layout          *Layout
-	addBrokerView   *views.AddBrokerView
-	addBrokerVM     *viewmodel.AddBrokerViewModel
-	addTopicView    *views.AddTopicView
-	addTopicVM      *viewmodel.AddTopicViewModel
-	isPopupActive   bool
-	activePopupView string
-	previousView    string
-	onBrokerAdded   func(config models.BrokerConfig)
-	onTopicAdded    func(config models.TopicConfig)
+	gui                 *gocui.Gui
+	layout              *Layout
+	addBrokerView       *views.AddBrokerView
+	addBrokerVM         *viewmodel.AddBrokerViewModel
+	addTopicView        *views.AddTopicView
+	addTopicVM          *viewmodel.AddTopicViewModel
+	produceMessageView  *views.ProduceMessageView
+	produceMessageVM    *viewmodel.ProduceMessageViewModel
+	isPopupActive       bool
+	activePopupView     string
+	previousView        string
+	onBrokerAdded       func(config models.BrokerConfig)
+	onTopicAdded        func(config models.TopicConfig)
+	onMessageProduced   func(topic string, key, value string, headers []models.Header) error
 }
 
 func NewPopupManager(g *gocui.Gui, layout *Layout, onBrokerAdded func(models.BrokerConfig), onTopicAdded func(models.TopicConfig)) *PopupManager {
@@ -28,6 +31,10 @@ func NewPopupManager(g *gocui.Gui, layout *Layout, onBrokerAdded func(models.Bro
 		onBrokerAdded: onBrokerAdded,
 		onTopicAdded:  onTopicAdded,
 	}
+}
+
+func (pm *PopupManager) SetOnMessageProduced(fn func(topic string, key, value string, headers []models.Header) error) {
+	pm.onMessageProduced = fn
 }
 
 func (pm *PopupManager) IsActive() bool {
@@ -104,6 +111,45 @@ func (pm *PopupManager) ShowAddTopicPopup() error {
 	return nil
 }
 
+func (pm *PopupManager) ShowProduceMessagePopup(topic string) error {
+	if pm.isPopupActive {
+		return nil
+	}
+
+	currentView := pm.gui.CurrentView()
+	if currentView != nil {
+		pm.previousView = currentView.Name()
+	}
+
+	pm.produceMessageVM = viewmodel.NewProduceMessageViewModel(
+		func(t string, key, value string, headers []models.Header) error {
+			if pm.onMessageProduced != nil {
+				if err := pm.onMessageProduced(t, key, value, headers); err != nil {
+					return err
+				}
+			}
+			pm.Close()
+			return nil
+		},
+		func() {
+			pm.Close()
+		},
+	)
+	pm.produceMessageVM.SetTopic(topic)
+
+	pm.produceMessageView = views.NewProduceMessageView(pm.produceMessageVM, pm.Close)
+	pm.isPopupActive = true
+	pm.activePopupView = "produce_message_view"
+
+	if err := pm.produceMessageView.Initialize(pm.gui); err != nil {
+		pm.isPopupActive = false
+		pm.activePopupView = ""
+		return err
+	}
+
+	return nil
+}
+
 func (pm *PopupManager) Close() {
 	if !pm.isPopupActive {
 		return
@@ -119,8 +165,14 @@ func (pm *PopupManager) Close() {
 		pm.addTopicView = nil
 	}
 
+	if pm.produceMessageView != nil {
+		_ = pm.produceMessageView.Destroy(pm.gui)
+		pm.produceMessageView = nil
+	}
+
 	pm.addBrokerVM = nil
 	pm.addTopicVM = nil
+	pm.produceMessageVM = nil
 	pm.isPopupActive = false
 	pm.activePopupView = ""
 
