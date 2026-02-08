@@ -195,3 +195,17 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - DeleteView automatically removes associated keybindings
   - MessageBrowserViewModel.SelectMessage triggers onMessageSelected callback
 ---
+## Sun Feb  8 03:20:00 PM CET 2026 - US-017
+- Added ProduceMessageViewModel to MainViewModel
+- Added ShowProduceMessagePopup to PopupManager with topic parameter
+- Added 'p' keybinding to TopicsView in keybindings.go
+- Added ShowProduceMessagePopup method to Layout
+- Set up callback to MainViewModel.ProduceMessage for sending messages
+- Focus starts on Key field (FieldKey in ProduceMessageViewModel)
+- After send/close, focus returns to topics list via previousView tracking
+- Files changed: internal/tui/popup_manager.go, internal/tui/layout.go, internal/tui/keybindings.go, internal/tui/view_models/main_view_model.go
+- **Learnings for future iterations:**
+  - PopupManager tracks previousView to restore focus after popup closes
+  - Use SetOnMessageProduced callback to wire up business logic
+  - GetSelectedTopic from TopicsViewModel to get current selection
+---
