@@ -220,3 +220,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Adjust selectedIndex when removing items to prevent out-of-bounds
   - Use on_error callback for error handling in async operations
 ---
+## Sun Feb  8 03:30:00 PM CET 2026 - US-019
+- Added 'd' keybinding to TopicsView via keybindings.go
+- Created ConfirmViewModel and ConfirmView for confirmation popups
+- Added ShowConfirmPopup method to PopupManager and Layout
+- On 'y', calls TopicsViewModel.DeleteTopic and refreshes topics list
+- On 'n' or Esc, closes popup without deleting
+- Files changed: internal/tui/keybindings.go, internal/tui/layout.go, internal/tui/popup_manager.go, internal/tui/view_models/confirm_view_model.go, internal/tui/views/confirm_view.go
+- **Learnings for future iterations:**
+  - ConfirmView is a reusable modal for yes/no confirmations
+  - Confirmation pattern: ShowConfirmPopup(message, onYes callback)
+  - Close callback handles both yes/no actions via ConfirmViewModel
+---
