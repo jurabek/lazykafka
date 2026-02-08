@@ -79,6 +79,16 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 
 	secretStore := secrets.NewKeyringStore()
 
+	// Load passwords from SecretStore for SASL brokers
+	for i := range configs {
+		if configs[i].AuthType == models.AuthSASL {
+			if username, password, err := secretStore.GetCredentials(configs[i].Name); err == nil {
+				configs[i].Username = username
+				configs[i].Password = password
+			}
+		}
+	}
+
 	layout := &Layout{
 		sidebarViews:      sidebarViews,
 		detailViews:       detailViews,
