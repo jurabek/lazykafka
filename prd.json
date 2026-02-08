@@ -180,7 +180,7 @@
         "View renders without layout issues"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
