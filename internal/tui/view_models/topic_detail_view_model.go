@@ -17,6 +17,7 @@ type TabType int
 const (
 	TabPartitions TabType = iota
 	TabConfiguration
+	TabMessages
 )
 
 type TopicDetailViewModel struct {
