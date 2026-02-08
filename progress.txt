@@ -297,3 +297,13 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Check existing code carefully to understand what's already there
   - Broker model already has AuthType field from US-021
 ---
+## Sun Feb  8 04:18:00 PM CET 2026 - US-026
+- Vim-style navigation already implemented
+- h/l for panel navigation in keybindings.go
+- j/k for list navigation in all view models
+- Files changed: none (already implemented)
+- **Learnings for future iterations:**
+  - Check keybindings.go for panel navigation (h/l)
+  - View models define their own command bindings (j/k/arrows)
+  - All list view models use same pattern for command bindings
+---
