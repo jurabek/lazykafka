@@ -232,3 +232,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Confirmation pattern: ShowConfirmPopup(message, onYes callback)
   - Close callback handles both yes/no actions via ConfirmViewModel
 ---
+## Sun Feb  8 03:45:00 PM CET 2026 - US-020
+- Added 'e' keybinding to TopicsView via keybindings.go
+- Created TopicConfigViewModel and TopicConfigView for editing topic config
+- Added ShowTopicConfigPopup method to PopupManager and Layout
+- Config fields: partitions (readonly), replication factor, cleanup policy, min in-sync replicas, retention
+- Ctrl+S saves config via kafkaClient.UpdateTopicConfig
+- Files changed: internal/tui/keybindings.go, internal/tui/layout.go, internal/tui/popup_manager.go, internal/tui/view_models/main_view_model.go, internal/tui/view_models/topic_config_view_model.go, internal/tui/views/topic_config_view.go
+- **Learnings for future iterations:**
+  - TopicConfigView uses editable input view at bottom for field editing
+  - Tab navigation switches between fields, Enter also advances
+  - Partition field is readonly since Kafka doesn't allow decreasing partitions
+---
