@@ -307,3 +307,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - View models define their own command bindings (j/k/arrows)
   - All list view models use same pattern for command bindings
 ---
+## Sun Feb 08 18:17:38 CET 2026 - US-027
+- Added JumpToTop and JumpToBottom methods to TopicsViewModel and ConsumerGroupsViewModel
+- Added G keybinding for jump to bottom via command bindings in view models
+- Added gg key sequence handler in keybindings.go with state tracking for multi-key sequences
+- BrokersViewModel already had JumpToTop/JumpToBottom methods, added G binding
+- Files changed: internal/tui/keybindings.go, internal/tui/view_models/topics_view_model.go, internal/tui/view_models/consumer_groups_view_model.go, internal/tui/view_models/brokers_view_model.go
+- **Learnings for future iterations:**
+  - Multi-key sequences in gocui require state tracking (lastKeyChar, lastKeyView)
+  - Use view name to reset state when switching views
+  - Access view models via MainViewModel() to trigger methods on specific VMs
+  - JumpToTop/JumpToBottom pattern uses same selection callback as MoveUp/MoveDown
+---
