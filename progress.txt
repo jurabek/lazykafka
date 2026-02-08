@@ -275,3 +275,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - SecretStore pattern: save to keyring, clear before file storage, restore on load
   - GetCredentials returns (username, password, error) - handle errors gracefully
 ---
+## Sun Feb  8 04:10:00 PM CET 2026 - US-024
+- Auth fields already implemented in AddBrokerView
+- Auth Type dropdown: None, SASL PLAIN, SASL SHA-256, SASL SHA-512
+- Username and Password fields shown conditionally for SASL
+- Password input masked with '*'
+- Validation ensures username/password for SASL auth
+- Files changed: none (already implemented)
+- **Learnings for future iterations:**
+  - AddBrokerView uses wizard-style step navigation
+  - StepAuthType and StepSASLMechanism use list selection with arrow keys
+  - StepUsername and StepPassword use text input
+---
