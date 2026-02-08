@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -340,13 +341,98 @@ func (c *franzClient) ConsumeMessages(ctx context.Context, topic string, filter 
 }
 
 func (c *franzClient) DeleteTopic(ctx context.Context, topicName string) error {
+	resps, err := c.admin.DeleteTopics(ctx, topicName)
+	if err != nil {
+		return err
+	}
+	if err := resps.Error(); err != nil {
+		return err
+	}
+	slog.Info("topic deleted", slog.String("name", topicName))
 	return nil
 }
 
 func (c *franzClient) GetTopicConfig(ctx context.Context, topicName string) (models.TopicConfig, error) {
-	return models.TopicConfig{}, nil
+	topicDetails, err := c.admin.ListTopics(ctx, topicName)
+	if err != nil {
+		return models.TopicConfig{}, err
+	}
+
+	topic, ok := topicDetails[topicName]
+	if !ok {
+		return models.TopicConfig{}, fmt.Errorf("topic %s not found", topicName)
+	}
+
+	configs, err := c.admin.DescribeTopicConfigs(ctx, topicName)
+	if err != nil {
+		return models.TopicConfig{}, err
+	}
+
+	config := models.TopicConfig{
+		Name:              topicName,
+		Partitions:        len(topic.Partitions),
+		ReplicationFactor: 0,
+		CleanupPolicy:     models.CleanupDelete,
+		MinInSyncReplicas: 0,
+		RetentionMs:       0,
+	}
+
+	if len(topic.Partitions) > 0 {
+		config.ReplicationFactor = len(topic.Partitions[0].Replicas)
+	}
+
+	for _, rc := range configs {
+		for _, cfg := range rc.Configs {
+			if cfg.Value == nil {
+				continue
+			}
+			switch cfg.Key {
+			case "cleanup.policy":
+				switch *cfg.Value {
+				case "compact":
+					config.CleanupPolicy = models.CleanupCompact
+				case "compact,delete":
+					config.CleanupPolicy = models.CleanupCompactDelete
+				default:
+					config.CleanupPolicy = models.CleanupDelete
+				}
+			case "min.insync.replicas":
+				if val, err := strconv.Atoi(*cfg.Value); err == nil {
+					config.MinInSyncReplicas = val
+				}
+			case "retention.ms":
+				if val, err := strconv.ParseInt(*cfg.Value, 10, 64); err == nil {
+					config.RetentionMs = val
+				}
+			}
+		}
+	}
+
+	return config, nil
 }
 
 func (c *franzClient) UpdateTopicConfig(ctx context.Context, config models.TopicConfig) error {
+	alterConfigs := []kadm.AlterConfig{
+		{Name: "cleanup.policy", Value: strPtr(config.CleanupPolicy.String())},
+		{Name: "min.insync.replicas", Value: strPtr(strconv.Itoa(config.MinInSyncReplicas))},
+	}
+	if config.RetentionMs > 0 {
+		alterConfigs = append(alterConfigs, kadm.AlterConfig{
+			Name:  "retention.ms",
+			Value: strPtr(strconv.FormatInt(config.RetentionMs, 10)),
+		})
+	}
+
+	resps, err := c.admin.AlterTopicConfigs(ctx, alterConfigs, config.Name)
+	if err != nil {
+		return err
+	}
+	for _, r := range resps {
+		if r.Err != nil {
+			return r.Err
+		}
+	}
+
+	slog.Info("topic config updated", slog.String("name", config.Name))
 	return nil
 }
