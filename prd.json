@@ -312,7 +312,7 @@
         "After save, call kafkaClient.UpdateTopicConfig"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
