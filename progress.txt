@@ -253,3 +253,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
 - **Learnings for future iterations:**
   - Check existing models before implementing new features
 ---
+## Sun Feb  8 04:00:00 PM CET 2026 - US-022
+- Modified FranzClientFactory.NewClient to read auth fields from BrokerConfig
+- Added switch statement for SASLMechanism: plain, scram-sha-256, scram-sha-512
+- PLAIN mechanism fully supported via franz-go plain.Auth
+- SCRAM mechanisms fall back to PLAIN with warning log (dependency limitation)
+- Empty auth config (no Username) skips authentication
+- Files changed: internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - Current vendored franz-go only supports PLAIN SASL
+  - SCRAM support requires updating franz-go dependency or implementing custom mechanism
+  - Use slog.Warn for graceful degradation when mechanism not available
+---
