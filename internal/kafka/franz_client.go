@@ -251,7 +251,92 @@ func (c *franzClient) ProduceMessage(ctx context.Context, topic string, key stri
 }
 
 func (c *franzClient) ConsumeMessages(ctx context.Context, topic string, filter models.MessageFilter) ([]models.Message, error) {
-	return nil, nil
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+
+	opts := []kgo.Opt{
+		kgo.ConsumeTopics(topic),
+	}
+
+	if filter.Partition >= 0 {
+		partitions := map[string]map[int32]kgo.Offset{
+			topic: {
+				int32(filter.Partition): kgo.NewOffset(),
+			},
+		}
+		opts = append(opts, kgo.ConsumePartitions(partitions))
+	}
+
+	if filter.Offset == 0 {
+		opts = append(opts, kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	} else if filter.Offset == -1 {
+		opts = append(opts, kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
+	} else {
+		opts = append(opts, kgo.ConsumeResetOffset(kgo.NewOffset().At(filter.Offset)))
+	}
+
+	seeds := strings.Split(c.config.BootstrapServers, ",")
+	opts = append(opts, kgo.SeedBrokers(seeds...))
+
+	if c.config.AuthType == models.AuthSASL && c.config.Username != "" {
+		mechanism := plain.Auth{
+			User: c.config.Username,
+			Pass: c.config.Password,
+		}.AsMechanism()
+		opts = append(opts, kgo.SASL(mechanism))
+	}
+
+	client, err := kgo.NewClient(opts...)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	var messages []models.Message
+	seenCount := 0
+
+	for seenCount < limit {
+		fetches := client.PollRecords(ctx, limit)
+		if fetches.IsClientClosed() {
+			break
+		}
+		if errs := fetches.Errors(); len(errs) > 0 {
+			slog.Error("consume errors", slog.Any("errors", errs))
+		}
+
+		fetches.EachRecord(func(r *kgo.Record) {
+			if seenCount >= limit {
+				return
+			}
+
+			headers := make([]models.Header, len(r.Headers))
+			for i, h := range r.Headers {
+				headers[i] = models.Header{
+					Key:   h.Key,
+					Value: string(h.Value),
+				}
+			}
+
+			messages = append(messages, models.Message{
+				Topic:     r.Topic,
+				Partition: int(r.Partition),
+				Offset:    r.Offset,
+				Key:       string(r.Key),
+				Value:     string(r.Value),
+				Timestamp: r.Timestamp,
+				Headers:   headers,
+			})
+			seenCount++
+		})
+
+		if len(fetches.Records()) == 0 {
+			break
+		}
+	}
+
+	return messages, nil
 }
 
 func (c *franzClient) DeleteTopic(ctx context.Context, topicName string) error {
