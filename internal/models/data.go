@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Broker struct {
 	ID      int
 	Name    string
@@ -40,6 +42,28 @@ type ConsumerGroupOffset struct {
 	Partition int
 	Lag       int64
 	Offset    int64
+}
+
+type Header struct {
+	Key   string
+	Value string
+}
+
+type Message struct {
+	Key        string
+	Value      string
+	Headers    []Header
+	Partition  int
+	Offset     int64
+	Timestamp  time.Time
+	Topic      string
+}
+
+type MessageFilter struct {
+	Partition int
+	Offset    int64
+	Limit     int
+	Format    string
 }
 
 type SchemaRegistry struct {
