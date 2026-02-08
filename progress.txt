@@ -136,3 +136,14 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Editor struct handles keybindings (Esc, Tab, Enter) at view level
   - Use SetViewOnTop to ensure proper z-ordering
 ---
+## Sun Feb  8 02:40:00 PM CET 2026 - US-012
+- Added Ctrl+S binding to produceMessageEditor
+- Implemented handleCtrlS to validate and submit message
+- Show error message in form view on failure
+- Close form after successful send via onClose callback
+- Files changed: internal/tui/views/produce_message_view.go
+- **Learnings for future iterations:**
+  - Custom editor struct handles special keys (Ctrl+S, Esc, Tab) within gocui
+  - gocui.KeyCtrlS is the constant for Ctrl+S keybinding
+  - showError method appends error message to form view
+---
