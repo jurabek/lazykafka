@@ -16,6 +16,8 @@ type PopupManager struct {
 	addTopicVM         *viewmodel.AddTopicViewModel
 	produceMessageView *views.ProduceMessageView
 	produceMessageVM   *viewmodel.ProduceMessageViewModel
+	confirmView        *views.ConfirmView
+	confirmVM          *viewmodel.ConfirmViewModel
 	isPopupActive      bool
 	activePopupView    string
 	previousView       string
@@ -170,9 +172,15 @@ func (pm *PopupManager) Close() {
 		pm.produceMessageView = nil
 	}
 
+	if pm.confirmView != nil {
+		_ = pm.confirmView.Destroy(pm.gui)
+		pm.confirmView = nil
+	}
+
 	pm.addBrokerVM = nil
 	pm.addTopicVM = nil
 	pm.produceMessageVM = nil
+	pm.confirmVM = nil
 	pm.isPopupActive = false
 	pm.activePopupView = ""
 
@@ -189,4 +197,35 @@ func (pm *PopupManager) BringToTop() {
 		pm.gui.SetViewOnTop(v.Name())
 		_, _ = pm.gui.SetCurrentView(pm.activePopupView)
 	}
+}
+
+func (pm *PopupManager) ShowConfirmPopup(message string, onYes func()) error {
+	if pm.isPopupActive {
+		return nil
+	}
+
+	currentView := pm.gui.CurrentView()
+	if currentView != nil {
+		pm.previousView = currentView.Name()
+	}
+
+	pm.confirmVM = viewmodel.NewConfirmViewModel(
+		message,
+		onYes,
+		func() {
+			pm.Close()
+		},
+	)
+
+	pm.confirmView = views.NewConfirmView(pm.confirmVM, pm.Close)
+	pm.isPopupActive = true
+	pm.activePopupView = "confirm"
+
+	if err := pm.confirmView.Initialize(pm.gui); err != nil {
+		pm.isPopupActive = false
+		pm.activePopupView = ""
+		return err
+	}
+
+	return nil
 }

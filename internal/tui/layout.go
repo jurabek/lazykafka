@@ -346,6 +346,10 @@ func (l *Layout) ShowProduceMessagePopup(topic string) error {
 	return l.popupManager.ShowProduceMessagePopup(topic)
 }
 
+func (l *Layout) ShowConfirmPopup(message string, onYes func()) error {
+	return l.popupManager.ShowConfirmPopup(message, onYes)
+}
+
 func (l *Layout) GetActiveViewIndex() int {
 	return l.activeViewIndex
 }

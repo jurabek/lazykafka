@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/tui/types"
@@ -174,6 +176,14 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "produce message",
 			BlockOnPopup: true,
 		},
+		{
+			ViewName:     panelTopics,
+			Key:          'd',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showDeleteTopicConfirmation,
+			Description:  "delete topic",
+			BlockOnPopup: true,
+		},
 	}
 }
 
@@ -257,4 +267,30 @@ func (h *keyBindingHandler) showProduceMessagePopup() error {
 	}
 
 	return h.layout.ShowProduceMessagePopup(selectedTopic.Name)
+}
+
+func (h *keyBindingHandler) showDeleteTopicConfirmation() error {
+	if h.layout.IsPopupActive() {
+		return nil
+	}
+
+	// Get selected topic from TopicsViewModel
+	mainVM := h.layout.MainViewModel()
+	topicsVM := mainVM.TopicsVM()
+	selectedTopic := topicsVM.GetSelectedTopic()
+
+	if selectedTopic == nil {
+		h.layout.SetStatusMessage("No topic selected")
+		return nil
+	}
+
+	message := fmt.Sprintf("Delete topic %s?", selectedTopic.Name)
+	return h.layout.ShowConfirmPopup(message, func() {
+		ctx := context.Background()
+		if err := topicsVM.DeleteTopic(ctx, selectedTopic.Name); err != nil {
+			h.layout.SetStatusMessage(fmt.Sprintf("Failed to delete topic: %v", err))
+			return
+		}
+		h.layout.SetStatusMessage(fmt.Sprintf("Topic %s deleted", selectedTopic.Name))
+	})
 }
