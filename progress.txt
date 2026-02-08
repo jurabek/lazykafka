@@ -244,3 +244,12 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Tab navigation switches between fields, Enter also advances
   - Partition field is readonly since Kafka doesn't allow decreasing partitions
 ---
+## Sun Feb  8 03:50:00 PM CET 2026 - US-021
+- SASL auth fields already present in BrokerConfig
+- Fields: Username, Password, SASLMechanism, AuthType
+- AuthType enum: AuthNone, AuthSASL
+- SASLMechanism enum: SASLPlain, SASLSCRAMSHA256, SASLSCRAMSHA512, SASLOAuthBearer
+- Files changed: none (already implemented)
+- **Learnings for future iterations:**
+  - Check existing models before implementing new features
+---
