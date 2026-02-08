@@ -1,0 +1,539 @@
+{
+  "project": "LazyKafka",
+  "branchName": "ralph/lazykafka-full-features",
+  "description": "LazyKafka Full Feature Implementation - Message browsing, producing, topic CRUD, SASL auth, and enhanced TUI navigation",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add Message models to domain layer",
+      "description": "As a developer, I need message data structures so the application can represent Kafka messages.",
+      "acceptanceCriteria": [
+        "Add Message struct to internal/models/data.go with: Key, Value, Headers, Partition, Offset, Timestamp, Topic",
+        "Add MessageFilter struct with: Partition (int, -1 for all), Offset (int64, 0 for newest), Limit (int, default 100), Format (string: 'json'|'plain')",
+        "Add Header struct for message headers with Key and Value fields",
+        "Add unit tests for model validation",
+        "go test ./internal/models/... passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Extend KafkaClient interface with message methods",
+      "description": "As a developer, I need Kafka client methods for producing/consuming messages.",
+      "acceptanceCriteria": [
+        "Add ProduceMessage(ctx, topic, key, value, headers []Header) error to KafkaClient interface",
+        "Add ConsumeMessages(ctx, topic, filter MessageFilter) ([]Message, error) to KafkaClient interface",
+        "Add DeleteTopic(ctx, topicName string) error to KafkaClient interface",
+        "Add GetTopicConfig(ctx, topicName string) (TopicConfig, error) to KafkaClient interface",
+        "Add UpdateTopicConfig(ctx, config TopicConfig) error to KafkaClient interface",
+        "Interface definitions compile without errors"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement ProduceMessage in FranzClient",
+      "description": "As a developer, I need the concrete Kafka client to support producing messages.",
+      "acceptanceCriteria": [
+        "Implement ProduceMessage using franz-go producer",
+        "Handle connection errors gracefully",
+        "Support empty key and value",
+        "Support headers as key-value pairs",
+        "go build completes without errors"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Implement ConsumeMessages in FranzClient",
+      "description": "As a developer, I need the concrete Kafka client to support consuming messages with filtering.",
+      "acceptanceCriteria": [
+        "Implement ConsumeMessages with partition filtering (-1 for all, 0-N for specific)",
+        "Support offset mode: oldest (offset 0) or newest (offset -1)",
+        "Respect Limit parameter for message count",
+        "Return Message structs with all fields populated",
+        "Handle connection errors gracefully",
+        "go build completes without errors"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement topic management methods in FranzClient",
+      "description": "As a developer, I need topic CRUD operations in the Kafka client.",
+      "acceptanceCriteria": [
+        "Implement DeleteTopic using franz-go admin API",
+        "Implement GetTopicConfig to fetch topic configuration",
+        "Implement UpdateTopicConfig to modify topic configuration",
+        "Handle errors when topic does not exist",
+        "go build completes without errors"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create MessageBrowserViewModel with state management",
+      "description": "As a developer, I need a view model to manage message browsing state.",
+      "acceptanceCriteria": [
+        "Create internal/tui/view_models/message_browser_view_model.go",
+        "Add messages slice with mutex-protected access",
+        "Add selectedIndex int for tracking selected message",
+        "Add currentFilter MessageFilter field",
+        "Add command bindings: j/k or arrows for nav, Enter for details, r for refresh",
+        "Implement LoadMessages(filter MessageFilter) method",
+        "Implement MoveUp/MoveDown methods for selection",
+        "go build completes without errors"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create MessageBrowserView for displaying messages",
+      "description": "As a user, I want a TUI panel that displays messages in a table format.",
+      "acceptanceCriteria": [
+        "Create internal/tui/views/message_browser_view.go",
+        "Display messages in table: Partition | Offset | Key | Timestamp | Value preview (truncated)",
+        "Highlight selected message row with different color",
+        "Handle empty message list with 'No messages' message",
+        "Show current topic and filter in view title",
+        "View renders without layout issues"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Create MessageDetailViewModel for full message inspection",
+      "description": "As a developer, I need a view model to manage message detail display state.",
+      "acceptanceCriteria": [
+        "Create internal/tui/view_models/message_detail_view_model.go",
+        "Add currentMessage Message field with mutex protection",
+        "Add scrollPosition int for long message scrolling",
+        "Implement SetMessage(msg Message) method",
+        "Implement ScrollUp/ScrollDown methods",
+        "Implement GetDisplayText() method returning formatted message with metadata",
+        "Add q command binding to close",
+        "go build completes without errors"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create MessageDetailView for full message display",
+      "description": "As a user, I want to see full message details including headers and full value.",
+      "acceptanceCriteria": [
+        "Create internal/tui/views/message_detail_view.go",
+        "Display message metadata section: topic, partition, offset, timestamp",
+        "Display headers section with key-value pairs",
+        "Display key section",
+        "Display value section with JSON pretty-printing when applicable",
+        "Support scrolling for long content",
+        "View renders without truncating important content"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create ProduceMessageViewModel for message composition",
+      "description": "As a developer, I need a view model to manage message composition state.",
+      "acceptanceCriteria": [
+        "Create internal/tui/view_models/produce_message_view_model.go",
+        "Add fields: topic, key, value, headers map[string]string with mutex protection",
+        "Add currentField int to track focused form field",
+        "Implement SetField(fieldName, value) method",
+        "Implement Validate() method returning error",
+        "Implement Clear() method to reset form",
+        "Implement NextField/PrevField methods for navigation",
+        "go build completes without errors"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Create ProduceMessageView with form fields",
+      "description": "As a user, I want a TUI form to input and send messages.",
+      "acceptanceCriteria": [
+        "Create internal/tui/views/produce_message_view.go",
+        "Display form with labels and input fields: Topic (readonly), Key, Value",
+        "Support Tab navigation between fields",
+        "Highlight active field",
+        "Show validation errors below active field",
+        "View renders without layout issues"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Wire up ProduceMessageView keybindings and actions",
+      "description": "As a user, I want to send messages using Ctrl+S and cancel with Esc.",
+      "acceptanceCriteria": [
+        "Add Ctrl+S binding to ProduceMessageView that calls Validate then ProduceMessage",
+        "Add Esc binding to close form without sending",
+        "Show success message in status bar after send",
+        "Show error message in status bar on failure",
+        "Close form after successful send"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add Messages tab constant and state to TopicDetailViewModel",
+      "description": "As a developer, I need tab state management in topic details.",
+      "acceptanceCriteria": [
+        "Add TabMessages constant to internal/tui/view_models/topic_detail_view_model.go",
+        "Add activeTab field with mutex protection",
+        "Implement SetActiveTab(tab) method",
+        "Implement GetActiveTab() method",
+        "Notify change listeners when tab changes",
+        "go build completes without errors"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add tab switching keybindings to TopicDetailView",
+      "description": "As a user, I want to switch between Partitions and Messages tabs.",
+      "acceptanceCriteria": [
+        "Add Tab key binding to cycle between tabs in TopicDetailView",
+        "Add 1/2 key bindings to jump to specific tabs",
+        "Update view title to show active tab: 'topic-name [Partitions]' or 'topic-name [Messages]'",
+        "Tab state persists when switching topics"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Integrate MessageBrowserView into TopicDetailView",
+      "description": "As a user, I want to see the message browser when Messages tab is active.",
+      "acceptanceCriteria": [
+        "Modify TopicDetailView layout to show MessageBrowserView when Messages tab active",
+        "Show existing partitions table when Partitions tab active",
+        "Pass selected topic to MessageBrowserViewModel when switching to Messages tab",
+        "View switches cleanly between tabs without flicker"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Wire up MessageDetailView to open on Enter in MessageBrowserView",
+      "description": "As a user, I want to press Enter on a message to see full details.",
+      "acceptanceCriteria": [
+        "Add Enter key handler in MessageBrowserView that opens MessageDetailView",
+        "Pass selected message to MessageDetailViewModel",
+        "MessageDetailView displays on top of other views",
+        "Pressing q in MessageDetailView closes it and returns to browser"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Add produce message option to TopicsView",
+      "description": "As a user, I want to press 'p' on a topic to produce a message.",
+      "acceptanceCriteria": [
+        "Add 'p' keybinding to TopicsView",
+        "Pressing 'p' opens ProduceMessageView with topic pre-filled",
+        "Focus starts on Key field",
+        "After send/close, focus returns to topics list"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Add DeleteTopic method to TopicsViewModel",
+      "description": "As a developer, I need delete functionality in the topics view model.",
+      "acceptanceCriteria": [
+        "Add DeleteTopic(ctx, topicName string) error method to TopicsViewModel",
+        "Method calls kafkaClient.DeleteTopic",
+        "Method removes topic from local topics slice",
+        "Method triggers change notification to update UI",
+        "go build completes without errors"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Add delete keybinding and confirmation to TopicsView",
+      "description": "As a user, I want to press 'd' to delete a topic with confirmation.",
+      "acceptanceCriteria": [
+        "Add 'd' keybinding to TopicsView",
+        "Pressing 'd' shows confirmation popup: 'Delete topic {name}? (y/n)'",
+        "Pressing 'y' calls TopicsViewModel.DeleteTopic",
+        "Pressing 'n' or Esc closes popup without deleting",
+        "After delete, topics list refreshes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add topic config viewing with 'e' keybinding",
+      "description": "As a user, I want to press 'e' to view and edit topic configuration.",
+      "acceptanceCriteria": [
+        "Add 'e' keybinding to TopicsView",
+        "Pressing 'e' opens config popup showing: partitions, replication factor, cleanup policy, retention",
+        "Config fields are editable (except partitions)",
+        "Add 'Save' button (Ctrl+S) to persist changes",
+        "After save, call kafkaClient.UpdateTopicConfig"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Add SASL authentication fields to BrokerConfig",
+      "description": "As a developer, I need auth fields in the broker config model.",
+      "acceptanceCriteria": [
+        "Add Username string field to internal/models/broker_config.go",
+        "Add Password string field to internal/models/broker_config.go",
+        "Add Mechanism string field to internal/models/broker_config.go",
+        "Add AuthType constant or enum for SASL authentication",
+        "go build completes without errors"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Integrate SASL auth with FranzClientFactory",
+      "description": "As a developer, I need auth config passed to the Kafka client.",
+      "acceptanceCriteria": [
+        "Modify FranzClientFactory.NewClient to read auth fields from BrokerConfig",
+        "Pass SASL config to franz-go client when Username/Password provided",
+        "Support mechanism values: 'plain', 'scram-sha-256', 'scram-sha-512'",
+        "Handle empty auth config (no authentication)",
+        "go build completes without errors"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Add password storage to SecretStore",
+      "description": "As a developer, I need to store passwords securely.",
+      "acceptanceCriteria": [
+        "Ensure existing SecretStore.SaveCredentials is used for broker passwords",
+        "Clear password from BrokerConfig before saving to file storage",
+        "Load password from SecretStore when loading broker configs",
+        "go build completes without errors"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Add auth fields to AddBrokerView form",
+      "description": "As a user, I want to enter auth credentials when adding a broker.",
+      "acceptanceCriteria": [
+        "Add Auth Type field to AddBrokerView dropdown: None | SASL PLAIN | SASL SHA-256 | SASL SHA-512",
+        "Add Username field (shown only when SASL selected)",
+        "Add Password field (shown only when SASL selected, input masked)",
+        "Form validation ensures username/password provided when SASL selected",
+        "View renders without layout issues"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Display auth type in BrokersView list",
+      "description": "As a user, I want to see which brokers use authentication.",
+      "acceptanceCriteria": [
+        "Modify BrokersView display format to show auth indicator",
+        "Show lock icon or 'SASL' text for authenticated brokers",
+        "Show 'None' for non-authenticated brokers",
+        "Display does not overflow column width"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Add vim-style navigation keybindings to list views",
+      "description": "As a user, I want to use h/j/k/l for navigation in all lists.",
+      "acceptanceCriteria": [
+        "Add 'h' key binding to move left/prev panel in Layout",
+        "Add 'l' key binding to move right/next panel in Layout",
+        "Ensure 'j'/'k' work in TopicsView, BrokersView, ConsumerGroupsView",
+        "Keybindings work alongside existing arrow key bindings"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Add gg and G keybindings for jump to top/bottom",
+      "description": "As a user, I want vim-style jump to first/last item.",
+      "acceptanceCriteria": [
+        "Add 'gg' key sequence handler to list view models (Topics, Brokers, CGs)",
+        "Add 'G' key handler to list view models",
+        "'gg' sets selectedIndex to 0",
+        "'G' sets selectedIndex to itemCount-1",
+        "Selection updates visibly in UI"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Add page navigation with Ctrl+d/Ctrl+u",
+      "description": "As a user, I want page down/up navigation.",
+      "acceptanceCriteria": [
+        "Add Ctrl+d handler to list view models for page down (jump 10 items or half list)",
+        "Add Ctrl+u handler to list view models for page up",
+        "Bounds checking to not go beyond list limits",
+        "Selection updates visibly in UI"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Add GetConsumerGroupOffsets to KafkaClient interface",
+      "description": "As a developer, I need to fetch consumer group offsets.",
+      "acceptanceCriteria": [
+        "Add GetConsumerGroupOffsets(ctx, groupName string) ([]ConsumerGroupOffset, error) to KafkaClient interface",
+        "Add Offset, Lag, Topic, Partition fields to ConsumerGroupOffset if not present",
+        "Interface compiles without errors"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Implement GetConsumerGroupOffsets in FranzClient",
+      "description": "As a developer, I need the concrete implementation of offset fetching.",
+      "acceptanceCriteria": [
+        "Implement GetConsumerGroupOffsets using franz-go admin API",
+        "Fetch offsets for all partitions the consumer group is subscribed to",
+        "Calculate lag as (endOffset - currentOffset)",
+        "Return ConsumerGroupOffset slice with all fields populated",
+        "go build completes without errors"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Display consumer group offsets in ConsumerGroupDetailView",
+      "description": "As a user, I want to see partition-level offsets and lag.",
+      "acceptanceCriteria": [
+        "Modify ConsumerGroupDetailView to show offset table: Partition | Topic | Current Offset | End Offset | Lag",
+        "Highlight rows with lag > 100 in different color",
+        "Add 'r' keybinding to refresh offset data",
+        "Handle empty offset list gracefully"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Add filter popup to MessageBrowserViewModel",
+      "description": "As a developer, I need filter state management in message browser.",
+      "acceptanceCriteria": [
+        "Add ShowFilterPopup() method to MessageBrowserViewModel",
+        "Add filter fields: partition (int), offsetMode (string: oldest/newest), limit (int)",
+        "Add ApplyFilter() method that reloads messages with new filter",
+        "Add ClearFilter() method that resets to defaults",
+        "go build completes without errors"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Add filter popup UI to MessageBrowserView",
+      "description": "As a user, I want to press 'f' to open filter options.",
+      "acceptanceCriteria": [
+        "Add 'f' keybinding to MessageBrowserView",
+        "Pressing 'f' opens filter popup with fields: Partition (-1 for all), Offset Mode (oldest/newest), Limit",
+        "Add Tab navigation between filter fields",
+        "Add Enter to apply filter and close popup",
+        "Add Esc to cancel and close popup",
+        "Show active filter in message browser title"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Add tail mode state to MessageBrowserViewModel",
+      "description": "As a developer, I need tailing state management.",
+      "acceptanceCriteria": [
+        "Add isTailing bool field with mutex protection to MessageBrowserViewModel",
+        "Add tailStopper context.CancelFunc for stopping tail goroutine",
+        "Add StartTailing() method that starts goroutine to poll every 2 seconds",
+        "Add StopTailing() method that cancels context and waits for goroutine",
+        "Tailing loads newest messages (offset -1) with limit 100",
+        "go build completes without errors"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Add tail mode toggle to MessageBrowserView",
+      "description": "As a user, I want to press 't' to toggle real-time message tailing.",
+      "acceptanceCriteria": [
+        "Add 't' keybinding to MessageBrowserView",
+        "Pressing 't' toggles tail mode on/off",
+        "When tailing, show 'TAILING' in view title",
+        "Tailing stops when user navigates (j/k/arrows) or switches views",
+        "Handle tailing errors by showing in status bar and stopping tail mode"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

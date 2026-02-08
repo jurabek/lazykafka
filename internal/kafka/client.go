@@ -12,6 +12,11 @@ type KafkaClient interface {
 	ListTopics(ctx context.Context) ([]models.Topic, error)
 	GetTopicPartitions(ctx context.Context, topicName string) ([]models.Partition, error)
 	CreateTopic(ctx context.Context, config models.TopicConfig) error
+	ProduceMessage(ctx context.Context, topic string, key string, value string, headers []models.Header) error
+	ConsumeMessages(ctx context.Context, topic string, filter models.MessageFilter) ([]models.Message, error)
+	DeleteTopic(ctx context.Context, topicName string) error
+	GetTopicConfig(ctx context.Context, topicName string) (models.TopicConfig, error)
+	UpdateTopicConfig(ctx context.Context, config models.TopicConfig) error
 }
 
 type ClientFactory interface {

@@ -222,3 +222,23 @@ func (c *franzClient) CreateTopic(ctx context.Context, config models.TopicConfig
 func strPtr(s string) *string {
 	return &s
 }
+
+func (c *franzClient) ProduceMessage(ctx context.Context, topic string, key string, value string, headers []models.Header) error {
+	return nil
+}
+
+func (c *franzClient) ConsumeMessages(ctx context.Context, topic string, filter models.MessageFilter) ([]models.Message, error) {
+	return nil, nil
+}
+
+func (c *franzClient) DeleteTopic(ctx context.Context, topicName string) error {
+	return nil
+}
+
+func (c *franzClient) GetTopicConfig(ctx context.Context, topicName string) (models.TopicConfig, error) {
+	return models.TopicConfig{}, nil
+}
+
+func (c *franzClient) UpdateTopicConfig(ctx context.Context, config models.TopicConfig) error {
+	return nil
+}
