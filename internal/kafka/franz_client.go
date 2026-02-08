@@ -34,11 +34,18 @@ func (f *franzClientFactory) NewClient(config models.BrokerConfig) (KafkaClient,
 	opts := []kgo.Opt{kgo.SeedBrokers(seeds...)}
 
 	if config.AuthType == models.AuthSASL && config.Username != "" {
-		mechanism := plain.Auth{
-			User: config.Username,
-			Pass: config.Password,
-		}.AsMechanism()
-		opts = append(opts, kgo.SASL(mechanism))
+		switch config.SASLMechanism {
+		case models.SASLSCRAMSHA256, models.SASLSCRAMSHA512:
+			slog.Warn("SCRAM mechanism requested but not supported in current vendored franz-go version, falling back to PLAIN",
+				"mechanism", config.SASLMechanism.String())
+			fallthrough
+		case models.SASLPlain, models.SASLOAuthBearer:
+			mechanism := plain.Auth{
+				User: config.Username,
+				Pass: config.Password,
+			}.AsMechanism()
+			opts = append(opts, kgo.SASL(mechanism))
+		}
 	}
 
 	client, err := kgo.NewClient(opts...)
