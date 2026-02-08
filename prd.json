@@ -195,7 +195,7 @@
         "Close form after successful send"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
