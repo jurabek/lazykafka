@@ -134,7 +134,11 @@ func (vm *BrokersViewModel) GetDisplayItems() []string {
 
 	items := make([]string, len(vm.brokers))
 	for i, b := range vm.brokers {
-		items[i] = fmt.Sprintf("%s (%s)", b.Name, b.Address)
+		authIndicator := ""
+		if b.AuthType == models.AuthSASL {
+			authIndicator = " [SASL]"
+		}
+		items[i] = fmt.Sprintf("%s (%s)%s", b.Name, b.Address, authIndicator)
 	}
 	return items
 }
@@ -170,9 +174,10 @@ func (vm *BrokersViewModel) Load(brokers []models.Broker) {
 func (vm *BrokersViewModel) AddBrokerConfig(config models.BrokerConfig) {
 	vm.mu.Lock()
 	newBroker := models.Broker{
-		ID:      len(vm.brokers),
-		Name:    config.Name,
-		Address: config.BootstrapServers,
+		ID:       len(vm.brokers),
+		Name:     config.Name,
+		Address:  config.BootstrapServers,
+		AuthType: config.AuthType,
 	}
 	vm.brokers = append(vm.brokers, newBroker)
 	vm.mu.Unlock()

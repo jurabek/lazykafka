@@ -3,9 +3,10 @@ package models
 import "time"
 
 type Broker struct {
-	ID      int
-	Name    string
-	Address string
+	ID       int
+	Name     string
+	Address  string
+	AuthType AuthType
 }
 
 type Topic struct {

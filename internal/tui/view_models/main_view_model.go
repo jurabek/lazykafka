@@ -72,9 +72,10 @@ func configsToBrokers(configs []models.BrokerConfig) []models.Broker {
 	brokers := make([]models.Broker, len(configs))
 	for i, c := range configs {
 		brokers[i] = models.Broker{
-			ID:      i,
-			Name:    c.Name,
-			Address: c.BootstrapServers,
+			ID:       i,
+			Name:     c.Name,
+			Address:  c.BootstrapServers,
+			AuthType: c.AuthType,
 		}
 	}
 	return brokers
