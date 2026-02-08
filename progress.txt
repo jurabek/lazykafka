@@ -209,3 +209,14 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Use SetOnMessageProduced callback to wire up business logic
   - GetSelectedTopic from TopicsViewModel to get current selection
 ---
+## Sun Feb  8 03:25:00 PM CET 2026 - US-018
+- Added DeleteTopic method to TopicsViewModel
+- Method calls kafkaClient.DeleteTopic
+- Removes topic from local topics slice and adjusts selectedIndex
+- Triggers change notification via notifyChange
+- Files changed: internal/tui/view_models/topics_view_model.go
+- **Learnings for future iterations:**
+  - View model operations update local state immediately after successful Kafka operation
+  - Adjust selectedIndex when removing items to prevent out-of-bounds
+  - Use on_error callback for error handling in async operations
+---
