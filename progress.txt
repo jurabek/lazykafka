@@ -287,3 +287,13 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - StepAuthType and StepSASLMechanism use list selection with arrow keys
   - StepUsername and StepPassword use text input
 ---
+## Sun Feb  8 04:15:00 PM CET 2026 - US-025
+- Added "[None]" auth indicator display for non-authenticated brokers
+- "[SASL]" indicator already present for authenticated brokers
+- Modified GetDisplayItems in BrokersViewModel
+- Files changed: internal/tui/view_models/brokers_view_model.go
+- **Learnings for future iterations:**
+  - Feature was partially implemented - SASL indicator showed but None did not
+  - Check existing code carefully to understand what's already there
+  - Broker model already has AuthType field from US-021
+---

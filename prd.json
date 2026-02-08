@@ -385,7 +385,7 @@
         "Display does not overflow column width"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
