@@ -319,3 +319,14 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Access view models via MainViewModel() to trigger methods on specific VMs
   - JumpToTop/JumpToBottom pattern uses same selection callback as MoveUp/MoveDown
 ---
+## Sun Feb 08 18:20:03 PM CET 2026 - US-028
+- Added PageDown and PageUp methods to TopicsViewModel, BrokersViewModel, ConsumerGroupsViewModel
+- Page size set to 10 items (or list size if smaller)
+- Added Ctrl+d (PageDown) and Ctrl+u (PageUp) bindings to all three list view models
+- Bounds checking ensures selection doesn't exceed list limits
+- Files changed: internal/tui/view_models/topics_view_model.go, internal/tui/view_models/brokers_view_model.go, internal/tui/view_models/consumer_groups_view_model.go
+- **Learnings for future iterations:**
+  - Page navigation follows same pattern as JumpToTop/Bottom: lock, calculate new index, update, trigger callback
+  - gocui.KeyCtrlD and gocui.KeyCtrlU are the constants for page down/up keybindings
+  - BrokersView had existing Ctrl+d/Ctrl+u for view scrolling - now also has selection-based page navigation
+---

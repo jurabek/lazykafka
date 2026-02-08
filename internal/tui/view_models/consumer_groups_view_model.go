@@ -27,6 +27,8 @@ func NewConsumerGroupsViewModel() *ConsumerGroupsViewModel {
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 	jumpToBottom := types.NewCommand(vm.JumpToBottom)
+	pageDown := types.NewCommand(vm.PageDown)
+	pageUp := types.NewCommand(vm.PageUp)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
@@ -34,6 +36,8 @@ func NewConsumerGroupsViewModel() *ConsumerGroupsViewModel {
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 		{Key: 'G', Cmd: jumpToBottom},
+		{Key: gocui.KeyCtrlD, Cmd: pageDown},
+		{Key: gocui.KeyCtrlU, Cmd: pageUp},
 	}
 	return vm
 }
@@ -137,6 +141,62 @@ func (vm *ConsumerGroupsViewModel) JumpToBottom() error {
 		callback(cg)
 	}
 	return nil
+}
+
+func (vm *ConsumerGroupsViewModel) PageDown() error {
+	vm.mu.Lock()
+	if len(vm.consumerGroups) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.consumerGroups) < pageSize {
+		pageSize = len(vm.consumerGroups)
+	}
+
+	newIndex := vm.selectedIndex + pageSize
+	if newIndex >= len(vm.consumerGroups) {
+		newIndex = len(vm.consumerGroups) - 1
+	}
+	vm.selectedIndex = newIndex
+	cg := &vm.consumerGroups[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(cg)
+	}
+	return nil
+}
+
+func (vm *ConsumerGroupsViewModel) PageUp() error {
+	vm.mu.Lock()
+	if len(vm.consumerGroups) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.consumerGroups) < pageSize {
+		pageSize = len(vm.consumerGroups)
+	}
+
+	newIndex := vm.selectedIndex - pageSize
+	if newIndex < 0 {
+		newIndex = 0
+	}
+	vm.selectedIndex = newIndex
+	if vm.selectedIndex >= 0 && vm.selectedIndex < len(vm.consumerGroups) {
+		cg := &vm.consumerGroups[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(cg)
+		}
+		return nil
+	}
+	vm.mu.Unlock()
+	return types.ErrNoSelection
 }
 
 func (vm *ConsumerGroupsViewModel) SetOnSelectionChanged(fn CGSelectionChangedFunc) {

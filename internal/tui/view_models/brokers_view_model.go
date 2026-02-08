@@ -144,11 +144,71 @@ func (vm *BrokersViewModel) JumpToBottom() error {
 	return nil
 }
 
+func (vm *BrokersViewModel) PageDown() error {
+	vm.mu.Lock()
+	if len(vm.brokers) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.brokers) < pageSize {
+		pageSize = len(vm.brokers)
+	}
+
+	newIndex := vm.selectedIndex + pageSize
+	if newIndex >= len(vm.brokers) {
+		newIndex = len(vm.brokers) - 1
+	}
+	vm.selectedIndex = newIndex
+	broker := &vm.brokers[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	vm.notifyChange(types.FieldSelectedIndex)
+	if callback != nil {
+		callback(broker)
+	}
+	return nil
+}
+
+func (vm *BrokersViewModel) PageUp() error {
+	vm.mu.Lock()
+	if len(vm.brokers) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.brokers) < pageSize {
+		pageSize = len(vm.brokers)
+	}
+
+	newIndex := vm.selectedIndex - pageSize
+	if newIndex < 0 {
+		newIndex = 0
+	}
+	vm.selectedIndex = newIndex
+	if vm.selectedIndex >= 0 && vm.selectedIndex < len(vm.brokers) {
+		broker := &vm.brokers[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		vm.notifyChange(types.FieldSelectedIndex)
+		if callback != nil {
+			callback(broker)
+		}
+		return nil
+	}
+	vm.mu.Unlock()
+	return types.ErrNoSelection
+}
+
 func (vm *BrokersViewModel) initCommandBindings() {
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 	jumpToBottom := types.NewCommand(vm.JumpToBottom)
 	openEditor := types.NewCommand(vm.OpenConfigInEditor)
+	pageDown := types.NewCommand(vm.PageDown)
+	pageUp := types.NewCommand(vm.PageUp)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
@@ -157,6 +217,8 @@ func (vm *BrokersViewModel) initCommandBindings() {
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 		{Key: 'G', Cmd: jumpToBottom},
 		{Key: 'e', Cmd: openEditor},
+		{Key: gocui.KeyCtrlD, Cmd: pageDown},
+		{Key: gocui.KeyCtrlU, Cmd: pageUp},
 	}
 }
 

@@ -33,6 +33,8 @@ func NewTopicsViewModel() *TopicsViewModel {
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
 	jumpToBottom := types.NewCommand(vm.JumpToBottom)
+	pageDown := types.NewCommand(vm.PageDown)
+	pageUp := types.NewCommand(vm.PageUp)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
@@ -40,6 +42,8 @@ func NewTopicsViewModel() *TopicsViewModel {
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
 		{Key: 'G', Cmd: jumpToBottom},
+		{Key: gocui.KeyCtrlD, Cmd: pageDown},
+		{Key: gocui.KeyCtrlU, Cmd: pageUp},
 	}
 
 	return vm
@@ -144,6 +148,62 @@ func (vm *TopicsViewModel) JumpToBottom() error {
 		callback(topic)
 	}
 	return nil
+}
+
+func (vm *TopicsViewModel) PageDown() error {
+	vm.mu.Lock()
+	if len(vm.topics) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.topics) < pageSize {
+		pageSize = len(vm.topics)
+	}
+
+	newIndex := vm.selectedIndex + pageSize
+	if newIndex >= len(vm.topics) {
+		newIndex = len(vm.topics) - 1
+	}
+	vm.selectedIndex = newIndex
+	topic := &vm.topics[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(topic)
+	}
+	return nil
+}
+
+func (vm *TopicsViewModel) PageUp() error {
+	vm.mu.Lock()
+	if len(vm.topics) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+
+	pageSize := 10
+	if len(vm.topics) < pageSize {
+		pageSize = len(vm.topics)
+	}
+
+	newIndex := vm.selectedIndex - pageSize
+	if newIndex < 0 {
+		newIndex = 0
+	}
+	vm.selectedIndex = newIndex
+	if vm.selectedIndex >= 0 && vm.selectedIndex < len(vm.topics) {
+		topic := &vm.topics[vm.selectedIndex]
+		callback := vm.onSelectionChanged
+		vm.mu.Unlock()
+		if callback != nil {
+			callback(topic)
+		}
+		return nil
+	}
+	vm.mu.Unlock()
+	return types.ErrNoSelection
 }
 
 func (vm *TopicsViewModel) SetOnSelectionChanged(fn SelectionChangedFunc) {
