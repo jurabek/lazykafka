@@ -20,6 +20,7 @@ type MainViewModel struct {
 	schemaRegistryVM       *SchemaRegistryViewModel
 	topicDetailVM          *TopicDetailViewModel
 	messageBrowserVM       *MessageBrowserViewModel
+	messageDetailVM        *MessageDetailViewModel
 	consumerGroupDetailVM  *ConsumerGroupDetailViewModel
 	schemaRegistryDetailVM *SchemaRegistryDetailViewModel
 
@@ -44,6 +45,7 @@ func NewMainViewModel(
 		schemaRegistryVM:       NewSchemaRegistryViewModel(),
 		topicDetailVM:          NewTopicDetailViewModel(),
 		messageBrowserVM:       NewMessageBrowserViewModel(),
+		messageDetailVM:        NewMessageDetailViewModel(),
 		consumerGroupDetailVM:  NewConsumerGroupDetailViewModel(),
 		schemaRegistryDetailVM: NewSchemaRegistryDetailViewModel(),
 		ctx:                    ctx,
@@ -197,6 +199,10 @@ func (vm *MainViewModel) TopicDetailVM() *TopicDetailViewModel {
 
 func (vm *MainViewModel) MessageBrowserVM() *MessageBrowserViewModel {
 	return vm.messageBrowserVM
+}
+
+func (vm *MainViewModel) MessageDetailVM() *MessageDetailViewModel {
+	return vm.messageDetailVM
 }
 
 func (vm *MainViewModel) ConsumerGroupDetailVM() *ConsumerGroupDetailViewModel {
