@@ -15,11 +15,18 @@ type KeyBindingHandler interface {
 }
 
 type keyBindingHandler struct {
-	layout *Layout
+	layout      *Layout
+	lastKeyChar rune
+	lastKeyView string
 }
 
 func NewKeyBindingHandler(layout *Layout) KeyBindingHandler {
 	return &keyBindingHandler{layout: layout}
+}
+
+func (h *keyBindingHandler) resetLastKey() {
+	h.lastKeyChar = 0
+	h.lastKeyView = ""
 }
 
 func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
@@ -37,6 +44,11 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 		bindings := vm.GetCommandBindings()
 
 		if err := h.bindViewCommands(g, viewName, bindings); err != nil {
+			return err
+		}
+
+		// Bind gg for jump to top
+		if err := h.bindGGSequence(g, viewName); err != nil {
 			return err
 		}
 
@@ -117,6 +129,43 @@ func (h *keyBindingHandler) bindViewCommands(g *gocui.Gui, viewName string, bind
 		}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (h *keyBindingHandler) bindGGSequence(g *gocui.Gui, viewName string) error {
+	// Bind 'g' key - first press stores state, second press triggers JumpToTop
+	if err := g.SetKeybinding(viewName, 'g', gocui.ModNone, func(gg *gocui.Gui, v *gocui.View) error {
+		if h.layout.IsPopupActive() {
+			return nil
+		}
+
+		// Check if this is the second 'g' press
+		if h.lastKeyChar == 'g' && h.lastKeyView == viewName {
+			h.resetLastKey()
+			// Trigger JumpToTop on the appropriate view model
+			mainVM := h.layout.MainViewModel()
+			var err error
+			switch viewName {
+			case "brokers":
+				err = mainVM.BrokersVM().JumpToTop()
+			case "topics":
+				err = mainVM.TopicsVM().JumpToTop()
+			case "consumer_groups":
+				err = mainVM.ConsumerGroupsVM().JumpToTop()
+			}
+			if err != nil && errors.Is(err, types.ErrNoSelection) {
+				return nil
+			}
+			return err
+		}
+
+		// Store first 'g' press
+		h.lastKeyChar = 'g'
+		h.lastKeyView = viewName
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

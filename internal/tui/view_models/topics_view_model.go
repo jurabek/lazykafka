@@ -32,12 +32,14 @@ func NewTopicsViewModel() *TopicsViewModel {
 
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
+	jumpToBottom := types.NewCommand(vm.JumpToBottom)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+		{Key: 'G', Cmd: jumpToBottom},
 	}
 
 	return vm
@@ -110,6 +112,38 @@ func (vm *TopicsViewModel) MoveDown() error {
 	}
 	vm.mu.Unlock()
 	return types.ErrNoSelection
+}
+
+func (vm *TopicsViewModel) JumpToTop() error {
+	vm.mu.Lock()
+	if len(vm.topics) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = 0
+	topic := &vm.topics[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(topic)
+	}
+	return nil
+}
+
+func (vm *TopicsViewModel) JumpToBottom() error {
+	vm.mu.Lock()
+	if len(vm.topics) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = len(vm.topics) - 1
+	topic := &vm.topics[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(topic)
+	}
+	return nil
 }
 
 func (vm *TopicsViewModel) SetOnSelectionChanged(fn SelectionChangedFunc) {

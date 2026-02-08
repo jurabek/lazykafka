@@ -110,9 +110,44 @@ func (vm *BrokersViewModel) MoveDown() error {
 	return types.ErrNoSelection
 }
 
+func (vm *BrokersViewModel) JumpToTop() error {
+	vm.mu.Lock()
+	if len(vm.brokers) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = 0
+	broker := &vm.brokers[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	vm.notifyChange(types.FieldSelectedIndex)
+	if callback != nil {
+		callback(broker)
+	}
+	return nil
+}
+
+func (vm *BrokersViewModel) JumpToBottom() error {
+	vm.mu.Lock()
+	if len(vm.brokers) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = len(vm.brokers) - 1
+	broker := &vm.brokers[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	vm.notifyChange(types.FieldSelectedIndex)
+	if callback != nil {
+		callback(broker)
+	}
+	return nil
+}
+
 func (vm *BrokersViewModel) initCommandBindings() {
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
+	jumpToBottom := types.NewCommand(vm.JumpToBottom)
 	openEditor := types.NewCommand(vm.OpenConfigInEditor)
 
 	vm.commandBindings = []*types.CommandBinding{
@@ -120,6 +155,7 @@ func (vm *BrokersViewModel) initCommandBindings() {
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+		{Key: 'G', Cmd: jumpToBottom},
 		{Key: 'e', Cmd: openEditor},
 	}
 }

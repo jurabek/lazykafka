@@ -26,12 +26,14 @@ func NewConsumerGroupsViewModel() *ConsumerGroupsViewModel {
 	}
 	moveUp := types.NewCommand(vm.MoveUp)
 	moveDown := types.NewCommand(vm.MoveDown)
+	jumpToBottom := types.NewCommand(vm.JumpToBottom)
 
 	vm.commandBindings = []*types.CommandBinding{
 		{Key: 'k', Cmd: moveUp},
 		{Key: 'j', Cmd: moveDown},
 		{Key: gocui.KeyArrowUp, Cmd: moveUp},
 		{Key: gocui.KeyArrowDown, Cmd: moveDown},
+		{Key: 'G', Cmd: jumpToBottom},
 	}
 	return vm
 }
@@ -103,6 +105,38 @@ func (vm *ConsumerGroupsViewModel) MoveDown() error {
 	}
 	vm.mu.Unlock()
 	return types.ErrNoSelection
+}
+
+func (vm *ConsumerGroupsViewModel) JumpToTop() error {
+	vm.mu.Lock()
+	if len(vm.consumerGroups) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = 0
+	cg := &vm.consumerGroups[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(cg)
+	}
+	return nil
+}
+
+func (vm *ConsumerGroupsViewModel) JumpToBottom() error {
+	vm.mu.Lock()
+	if len(vm.consumerGroups) == 0 {
+		vm.mu.Unlock()
+		return types.ErrNoSelection
+	}
+	vm.selectedIndex = len(vm.consumerGroups) - 1
+	cg := &vm.consumerGroups[vm.selectedIndex]
+	callback := vm.onSelectionChanged
+	vm.mu.Unlock()
+	if callback != nil {
+		callback(cg)
+	}
+	return nil
 }
 
 func (vm *ConsumerGroupsViewModel) SetOnSelectionChanged(fn CGSelectionChangedFunc) {
