@@ -239,7 +239,7 @@
         "View switches cleanly between tabs without flicker"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
