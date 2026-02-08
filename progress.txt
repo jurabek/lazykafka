@@ -122,3 +122,17 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Headers stored as map[string]string in viewmodel, converted to []Header for submission
   - Use validation map to track per-field errors for display
 ---
+## Sun Feb  8 02:35:00 PM CET 2026 - US-011
+- Created ProduceMessageView with form display
+- Display form with labels and input fields: Topic (readonly), Key, Value
+- Support Tab navigation between fields
+- Highlight active field with "> " prefix
+- Show validation errors below active field
+- Files changed: internal/tui/views/produce_message_view.go
+- **Learnings for future iterations:**
+  - Form views use two gocui views: main display view and input view
+  - Main view shows readonly fields and validation errors
+  - Input view handles editing for the active field
+  - Editor struct handles keybindings (Esc, Tab, Enter) at view level
+  - Use SetViewOnTop to ensure proper z-ordering
+---
