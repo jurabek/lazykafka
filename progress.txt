@@ -169,3 +169,16 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Tab switching requires re-rendering the detail view
   - Keybindings can be added per-view via g.SetKeybinding with view name
 ---
+## Sun Feb  8 03:00:00 PM CET 2026 - US-015
+- Added MessageBrowserViewModel to MainViewModel
+- Updated TopicDetailView constructor to accept MessageBrowserViewModel
+- Modified Render to check activeTab and show appropriate view
+- When Messages tab active, use SetViewOnTop for message browser view
+- When Partitions/Config tab active, use SetViewOnBottom for message browser
+- Pass selected topic to MessageBrowserViewModel when switching to Messages tab
+- Files changed: internal/tui/view_models/main_view_model.go, internal/tui/views/topic_detail_view.go, internal/tui/layout.go
+- **Learnings for future iterations:**
+  - gocui doesn't have a Visible field, use SetViewOnTop/SetViewOnBottom instead
+  - Track currentTab to detect tab changes and trigger re-render
+  - Use g.SetView with same bounds to create overlapping views for tab switching
+---
