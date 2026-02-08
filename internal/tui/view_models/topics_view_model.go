@@ -203,3 +203,38 @@ func (vm *TopicsViewModel) loadTopicsAsync() {
 		vm.Load(topics)
 	}()
 }
+
+func (vm *TopicsViewModel) DeleteTopic(ctx context.Context, topicName string) error {
+	vm.mu.RLock()
+	client := vm.kafkaClient
+	onError := vm.onError
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return fmt.Errorf("kafka client not configured")
+	}
+
+	if err := client.DeleteTopic(ctx, topicName); err != nil {
+		slog.Error("failed to delete topic", slog.String("topic", topicName), slog.Any("error", err))
+		if onError != nil {
+			onError(err)
+		}
+		return err
+	}
+
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	for i, t := range vm.topics {
+		if t.Name == topicName {
+			vm.topics = append(vm.topics[:i], vm.topics[i+1:]...)
+			if vm.selectedIndex >= len(vm.topics) {
+				vm.selectedIndex = len(vm.topics) - 1
+			}
+			break
+		}
+	}
+
+	vm.notifyChange(types.FieldItems)
+	return nil
+}

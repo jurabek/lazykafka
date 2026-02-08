@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	produceMessageView = "produce_message_view"
+	produceMessageView  = "produce_message_view"
 	produceMessageInput = "produce_message_input"
 
 	produceMessageWidth  = 80
@@ -18,11 +18,11 @@ const (
 )
 
 type produceMessageEditor struct {
-	onEsc     func()
-	onTab     func()
-	onEnter   func()
-	onCtrlS   func()
-	view      *ProduceMessageView
+	onEsc   func()
+	onTab   func()
+	onEnter func()
+	onCtrlS func()
+	view    *ProduceMessageView
 }
 
 func (e *produceMessageEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {

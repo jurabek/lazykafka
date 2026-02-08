@@ -8,20 +8,20 @@ import (
 )
 
 type PopupManager struct {
-	gui                 *gocui.Gui
-	layout              *Layout
-	addBrokerView       *views.AddBrokerView
-	addBrokerVM         *viewmodel.AddBrokerViewModel
-	addTopicView        *views.AddTopicView
-	addTopicVM          *viewmodel.AddTopicViewModel
-	produceMessageView  *views.ProduceMessageView
-	produceMessageVM    *viewmodel.ProduceMessageViewModel
-	isPopupActive       bool
-	activePopupView     string
-	previousView        string
-	onBrokerAdded       func(config models.BrokerConfig)
-	onTopicAdded        func(config models.TopicConfig)
-	onMessageProduced   func(topic string, key, value string, headers []models.Header) error
+	gui                *gocui.Gui
+	layout             *Layout
+	addBrokerView      *views.AddBrokerView
+	addBrokerVM        *viewmodel.AddBrokerViewModel
+	addTopicView       *views.AddTopicView
+	addTopicVM         *viewmodel.AddTopicViewModel
+	produceMessageView *views.ProduceMessageView
+	produceMessageVM   *viewmodel.ProduceMessageViewModel
+	isPopupActive      bool
+	activePopupView    string
+	previousView       string
+	onBrokerAdded      func(config models.BrokerConfig)
+	onTopicAdded       func(config models.TopicConfig)
+	onMessageProduced  func(topic string, key, value string, headers []models.Header) error
 }
 
 func NewPopupManager(g *gocui.Gui, layout *Layout, onBrokerAdded func(models.BrokerConfig), onTopicAdded func(models.TopicConfig)) *PopupManager {
