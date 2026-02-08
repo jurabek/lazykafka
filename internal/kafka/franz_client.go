@@ -443,3 +443,7 @@ func (c *franzClient) UpdateTopicConfig(ctx context.Context, config models.Topic
 	slog.Info("topic config updated", slog.String("name", config.Name))
 	return nil
 }
+
+func (c *franzClient) GetConsumerGroupOffsets(ctx context.Context, groupName string) ([]models.ConsumerGroupOffset, error) {
+	return nil, fmt.Errorf("not implemented")
+}

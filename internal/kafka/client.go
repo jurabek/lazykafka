@@ -17,6 +17,7 @@ type KafkaClient interface {
 	DeleteTopic(ctx context.Context, topicName string) error
 	GetTopicConfig(ctx context.Context, topicName string) (models.TopicConfig, error)
 	UpdateTopicConfig(ctx context.Context, config models.TopicConfig) error
+	GetConsumerGroupOffsets(ctx context.Context, groupName string) ([]models.ConsumerGroupOffset, error)
 }
 
 type ClientFactory interface {
