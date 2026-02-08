@@ -134,7 +134,7 @@ func (vm *BrokersViewModel) GetDisplayItems() []string {
 
 	items := make([]string, len(vm.brokers))
 	for i, b := range vm.brokers {
-		authIndicator := ""
+		authIndicator := " [None]"
 		if b.AuthType == models.AuthSASL {
 			authIndicator = " [SASL]"
 		}
