@@ -265,3 +265,13 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - SCRAM support requires updating franz-go dependency or implementing custom mechanism
   - Use slog.Warn for graceful degradation when mechanism not available
 ---
+## Sun Feb  8 04:05:00 PM CET 2026 - US-023
+- Added password loading from SecretStore in NewLayout
+- When loading SASL broker configs, passwords are restored from keyring
+- SaveCredentials was already used in onBrokerAdded
+- Password clearing before file save was already implemented
+- Files changed: internal/tui/layout.go
+- **Learnings for future iterations:**
+  - SecretStore pattern: save to keyring, clear before file storage, restore on load
+  - GetCredentials returns (username, password, error) - handle errors gracefully
+---
