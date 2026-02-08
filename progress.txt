@@ -157,3 +157,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Tab management was already implemented in TopicDetailViewModel
   - Only needed to add the new tab constant to the enum
 ---
+## Sun Feb  8 02:50:00 PM CET 2026 - US-014
+- Added Tab key binding to cycle between tabs in TopicDetailView
+- Added 1/2/3 key bindings to jump to specific tabs (Partitions/Config/Messages)
+- Updated GetTitle() to show active tab in format: 'topic-name [TabName]'
+- Added NextTab() and SetTab() methods to Layout
+- Added setupTopicDetailBindings() to keybindings.go
+- Files changed: internal/tui/keybindings.go, internal/tui/layout.go, internal/tui/view_models/topic_detail_view_model.go
+- **Learnings for future iterations:**
+  - Use layout.gui.Update for thread-safe GUI updates when changing state
+  - Tab switching requires re-rendering the detail view
+  - Keybindings can be added per-view via g.SetKeybinding with view name
+---
