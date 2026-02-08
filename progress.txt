@@ -182,3 +182,16 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Track currentTab to detect tab changes and trigger re-render
   - Use g.SetView with same bounds to create overlapping views for tab switching
 ---
+## Sun Feb  8 03:10:00 PM CET 2026 - US-016
+- Added MessageDetailViewModel to MainViewModel
+- Updated TopicDetailView to create MessageDetailView as popup modal
+- Added SetOnMessageSelected callback to show detail view when message selected
+- Created showMessageDetail method to display popup centered at 80% of screen
+- Added q and Esc keybindings to close detail view
+- Files changed: internal/tui/view_models/main_view_model.go, internal/tui/views/topic_detail_view.go
+- **Learnings for future iterations:**
+  - Use g.SetView with same bounds to create popup modal views
+  - Set up view-specific keybindings for popup views
+  - DeleteView automatically removes associated keybindings
+  - MessageBrowserViewModel.SelectMessage triggers onMessageSelected callback
+---
