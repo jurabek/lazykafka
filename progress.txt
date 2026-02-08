@@ -147,3 +147,13 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - gocui.KeyCtrlS is the constant for Ctrl+S keybinding
   - showError method appends error message to form view
 ---
+## Sun Feb  8 02:43:00 PM CET 2026 - US-013
+- Added TabMessages constant to TabType enum
+- Existing activeTab field already had mutex protection
+- Existing GetActiveTab/SetActiveTab methods already present
+- Existing notifyChange already called on tab change
+- Files changed: internal/tui/view_models/topic_detail_view_model.go
+- **Learnings for future iterations:**
+  - Tab management was already implemented in TopicDetailViewModel
+  - Only needed to add the new tab constant to the enum
+---
