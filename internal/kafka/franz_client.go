@@ -224,6 +224,29 @@ func strPtr(s string) *string {
 }
 
 func (c *franzClient) ProduceMessage(ctx context.Context, topic string, key string, value string, headers []models.Header) error {
+	record := &kgo.Record{
+		Topic: topic,
+		Key:   []byte(key),
+		Value: []byte(value),
+	}
+
+	if len(headers) > 0 {
+		kgoHeaders := make([]kgo.RecordHeader, len(headers))
+		for i, h := range headers {
+			kgoHeaders[i] = kgo.RecordHeader{
+				Key:   h.Key,
+				Value: []byte(h.Value),
+			}
+		}
+		record.Headers = kgoHeaders
+	}
+
+	if err := c.client.ProduceSync(ctx, record).FirstErr(); err != nil {
+		slog.Error("failed to produce message", slog.String("topic", topic), slog.Any("error", err))
+		return err
+	}
+
+	slog.Info("message produced", slog.String("topic", topic))
 	return nil
 }
 
