@@ -267,7 +267,7 @@
         "After send/close, focus returns to topics list"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
