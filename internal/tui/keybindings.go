@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jroimartin/gocui"
+	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
@@ -184,6 +185,14 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "delete topic",
 			BlockOnPopup: true,
 		},
+		{
+			ViewName:     panelTopics,
+			Key:          'e',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showTopicConfig,
+			Description:  "edit topic config",
+			BlockOnPopup: true,
+		},
 	}
 }
 
@@ -293,4 +302,34 @@ func (h *keyBindingHandler) showDeleteTopicConfirmation() error {
 		}
 		h.layout.SetStatusMessage(fmt.Sprintf("Topic %s deleted", selectedTopic.Name))
 	})
+}
+
+func (h *keyBindingHandler) showTopicConfig() error {
+	if h.layout.IsPopupActive() {
+		return nil
+	}
+
+	// Get selected topic from TopicsViewModel
+	mainVM := h.layout.MainViewModel()
+	topicsVM := mainVM.TopicsVM()
+	selectedTopic := topicsVM.GetSelectedTopic()
+
+	if selectedTopic == nil {
+		h.layout.SetStatusMessage("No topic selected")
+		return nil
+	}
+
+	// Get the kafka client from topicsVM
+	// We need to access it via the layout's mainVM
+	// For now, create a new client or use a stored reference
+	config := models.TopicConfig{
+		Name:              selectedTopic.Name,
+		Partitions:        selectedTopic.Partitions,
+		ReplicationFactor: selectedTopic.Replicas,
+		CleanupPolicy:     0,
+		MinInSyncReplicas: 1,
+		RetentionMs:       604800000, // 7 days default
+	}
+
+	return h.layout.ShowTopicConfigPopup(selectedTopic.Name, config)
 }

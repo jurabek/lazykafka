@@ -112,6 +112,17 @@ func NewLayout(ctx context.Context, g *gocui.Gui) *Layout {
 		return nil
 	})
 
+	layout.popupManager.SetOnTopicConfigUpdate(func(config models.TopicConfig) {
+		ctx := context.Background()
+		if err := layout.mainVM.UpdateTopicConfig(ctx, config); err != nil {
+			slog.Error("failed to update topic config", "error", err)
+			layout.SetStatusMessage(err.Error())
+			return
+		}
+		layout.SetStatusMessage(fmt.Sprintf("Topic %s config updated", config.Name))
+		layout.mainVM.TopicsVM().Reload()
+	})
+
 	return layout
 }
 
@@ -348,6 +359,10 @@ func (l *Layout) ShowProduceMessagePopup(topic string) error {
 
 func (l *Layout) ShowConfirmPopup(message string, onYes func()) error {
 	return l.popupManager.ShowConfirmPopup(message, onYes)
+}
+
+func (l *Layout) ShowTopicConfigPopup(topicName string, config models.TopicConfig) error {
+	return l.popupManager.ShowTopicConfigPopup(topicName, config)
 }
 
 func (l *Layout) GetActiveViewIndex() int {

@@ -8,22 +8,25 @@ import (
 )
 
 type PopupManager struct {
-	gui                *gocui.Gui
-	layout             *Layout
-	addBrokerView      *views.AddBrokerView
-	addBrokerVM        *viewmodel.AddBrokerViewModel
-	addTopicView       *views.AddTopicView
-	addTopicVM         *viewmodel.AddTopicViewModel
-	produceMessageView *views.ProduceMessageView
-	produceMessageVM   *viewmodel.ProduceMessageViewModel
-	confirmView        *views.ConfirmView
-	confirmVM          *viewmodel.ConfirmViewModel
-	isPopupActive      bool
-	activePopupView    string
-	previousView       string
-	onBrokerAdded      func(config models.BrokerConfig)
-	onTopicAdded       func(config models.TopicConfig)
-	onMessageProduced  func(topic string, key, value string, headers []models.Header) error
+	gui                 *gocui.Gui
+	layout              *Layout
+	addBrokerView       *views.AddBrokerView
+	addBrokerVM         *viewmodel.AddBrokerViewModel
+	addTopicView        *views.AddTopicView
+	addTopicVM          *viewmodel.AddTopicViewModel
+	produceMessageView  *views.ProduceMessageView
+	produceMessageVM    *viewmodel.ProduceMessageViewModel
+	confirmView         *views.ConfirmView
+	confirmVM           *viewmodel.ConfirmViewModel
+	topicConfigView     *views.TopicConfigView
+	topicConfigVM       *viewmodel.TopicConfigViewModel
+	isPopupActive       bool
+	activePopupView     string
+	previousView        string
+	onBrokerAdded       func(config models.BrokerConfig)
+	onTopicAdded        func(config models.TopicConfig)
+	onMessageProduced   func(topic string, key, value string, headers []models.Header) error
+	onTopicConfigUpdate func(config models.TopicConfig)
 }
 
 func NewPopupManager(g *gocui.Gui, layout *Layout, onBrokerAdded func(models.BrokerConfig), onTopicAdded func(models.TopicConfig)) *PopupManager {
@@ -37,6 +40,10 @@ func NewPopupManager(g *gocui.Gui, layout *Layout, onBrokerAdded func(models.Bro
 
 func (pm *PopupManager) SetOnMessageProduced(fn func(topic string, key, value string, headers []models.Header) error) {
 	pm.onMessageProduced = fn
+}
+
+func (pm *PopupManager) SetOnTopicConfigUpdate(fn func(config models.TopicConfig)) {
+	pm.onTopicConfigUpdate = fn
 }
 
 func (pm *PopupManager) IsActive() bool {
@@ -177,10 +184,16 @@ func (pm *PopupManager) Close() {
 		pm.confirmView = nil
 	}
 
+	if pm.topicConfigView != nil {
+		_ = pm.topicConfigView.Destroy(pm.gui)
+		pm.topicConfigView = nil
+	}
+
 	pm.addBrokerVM = nil
 	pm.addTopicVM = nil
 	pm.produceMessageVM = nil
 	pm.confirmVM = nil
+	pm.topicConfigVM = nil
 	pm.isPopupActive = false
 	pm.activePopupView = ""
 
@@ -222,6 +235,51 @@ func (pm *PopupManager) ShowConfirmPopup(message string, onYes func()) error {
 	pm.activePopupView = "confirm"
 
 	if err := pm.confirmView.Initialize(pm.gui); err != nil {
+		pm.isPopupActive = false
+		pm.activePopupView = ""
+		return err
+	}
+
+	return nil
+}
+
+func (pm *PopupManager) ShowTopicConfigPopup(topicName string, config models.TopicConfig) error {
+	if pm.isPopupActive {
+		return nil
+	}
+
+	currentView := pm.gui.CurrentView()
+	if currentView != nil {
+		pm.previousView = currentView.Name()
+	}
+
+	pm.topicConfigVM = viewmodel.NewTopicConfigViewModel(
+		topicName,
+		config,
+		func(newConfig models.TopicConfig) {
+			if pm.onTopicConfigUpdate != nil {
+				pm.onTopicConfigUpdate(newConfig)
+			}
+			pm.Close()
+		},
+		func() {
+			pm.Close()
+		},
+	)
+
+	pm.topicConfigView = views.NewTopicConfigView(pm.topicConfigVM, func(newConfig models.TopicConfig) {
+		if pm.onTopicConfigUpdate != nil {
+			pm.onTopicConfigUpdate(newConfig)
+		}
+		pm.Close()
+	}, func() {
+		pm.Close()
+	})
+
+	pm.isPopupActive = true
+	pm.activePopupView = "topic_config"
+
+	if err := pm.topicConfigView.Initialize(pm.gui); err != nil {
 		pm.isPopupActive = false
 		pm.activePopupView = ""
 		return err

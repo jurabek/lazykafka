@@ -249,3 +249,15 @@ func (vm *MainViewModel) ProduceMessage(ctx context.Context, topic string, key, 
 
 	return client.ProduceMessage(ctx, topic, key, value, headers)
 }
+
+func (vm *MainViewModel) UpdateTopicConfig(ctx context.Context, config models.TopicConfig) error {
+	vm.mu.RLock()
+	client := vm.activeClient
+	vm.mu.RUnlock()
+
+	if client == nil {
+		return fmt.Errorf("no active kafka client")
+	}
+
+	return client.UpdateTopicConfig(ctx, config)
+}
