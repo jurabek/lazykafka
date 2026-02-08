@@ -253,7 +253,7 @@
         "Pressing q in MessageDetailView closes it and returns to browser"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
