@@ -76,10 +76,23 @@ func (vm *TopicDetailViewModel) GetDisplayItems() []string {
 func (vm *TopicDetailViewModel) GetTitle() string {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
+
+	topicName := "Details"
 	if vm.topic != nil {
-		return vm.topic.Name
+		topicName = vm.topic.Name
 	}
-	return "Details"
+
+	tabName := ""
+	switch vm.activeTab {
+	case TabPartitions:
+		tabName = "Partitions"
+	case TabConfiguration:
+		tabName = "Config"
+	case TabMessages:
+		tabName = "Messages"
+	}
+
+	return fmt.Sprintf("%s [%s]", topicName, tabName)
 }
 
 func (vm *TopicDetailViewModel) GetName() string {

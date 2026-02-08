@@ -24,6 +24,10 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 		return err
 	}
 
+	if err := h.setupTopicDetailBindings(g); err != nil {
+		return err
+	}
+
 	for _, view := range h.layout.sidebarViews {
 		vm := view.GetViewModel()
 		viewName := vm.GetName()
@@ -56,6 +60,40 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 		if err := h.bindPanelNavigationKeys(g, viewName); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (h *keyBindingHandler) setupTopicDetailBindings(g *gocui.Gui) error {
+	viewName := "topic_detail"
+
+	if err := g.SetKeybinding(viewName, gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.layout.NextTab()
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := g.SetKeybinding(viewName, '1', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.layout.SetTab(0)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := g.SetKeybinding(viewName, '2', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.layout.SetTab(1)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := g.SetKeybinding(viewName, '3', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.layout.SetTab(2)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return nil

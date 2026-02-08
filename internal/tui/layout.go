@@ -277,6 +277,34 @@ func (l *Layout) JumpToPanel(g *gocui.Gui, index int) {
 	}
 }
 
+func (l *Layout) NextTab() {
+	vm := l.mainVM.TopicDetailVM()
+	currentTab := vm.GetActiveTab()
+	nextTab := currentTab + 1
+	if nextTab > 2 {
+		nextTab = 0
+	}
+	vm.SetActiveTab(nextTab)
+	l.refreshDetailView()
+}
+
+func (l *Layout) SetTab(tab int) {
+	vm := l.mainVM.TopicDetailVM()
+	vm.SetActiveTab(viewmodel.TabType(tab))
+	l.refreshDetailView()
+}
+
+func (l *Layout) refreshDetailView() {
+	l.gui.Update(func(g *gocui.Gui) error {
+		if gocuiView, err := g.View("topic_detail"); err == nil {
+			if view, ok := l.detailViews[sidebarTopics].(*views.TopicDetailView); ok {
+				_ = view.Render(g, gocuiView)
+			}
+		}
+		return nil
+	})
+}
+
 func (l *Layout) refreshAllViews(g *gocui.Gui) {
 	g.Update(func(g *gocui.Gui) error {
 		for i, view := range l.sidebarViews {
