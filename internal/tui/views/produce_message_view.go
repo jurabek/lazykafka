@@ -21,6 +21,7 @@ type produceMessageEditor struct {
 	onEsc     func()
 	onTab     func()
 	onEnter   func()
+	onCtrlS   func()
 	view      *ProduceMessageView
 }
 
@@ -39,6 +40,11 @@ func (e *produceMessageEditor) Edit(v *gocui.View, key gocui.Key, ch rune, mod g
 	case gocui.KeyEnter:
 		if e.onEnter != nil {
 			e.onEnter()
+		}
+		return
+	case gocui.KeyCtrlS:
+		if e.onCtrlS != nil {
+			e.onCtrlS()
 		}
 		return
 	}
@@ -97,6 +103,7 @@ func (v *ProduceMessageView) render() error {
 		onEsc:   v.handleEsc,
 		onTab:   v.handleTab,
 		onEnter: v.handleEnter,
+		onCtrlS: v.handleCtrlS,
 		view:    v,
 	}
 
@@ -242,6 +249,22 @@ func (v *ProduceMessageView) Destroy(g *gocui.Gui) error {
 	_ = g.DeleteView(produceMessageView)
 	_ = g.DeleteView(produceMessageInput)
 	return nil
+}
+
+func (v *ProduceMessageView) handleCtrlS() {
+	if err := v.Submit(); err != nil {
+		slog.Error("failed to send message", "error", err)
+		v.showError(err.Error())
+	}
+}
+
+func (v *ProduceMessageView) showError(msg string) {
+	formView, err := v.gui.View(produceMessageView)
+	if err != nil {
+		return
+	}
+	v.renderForm(formView)
+	fmt.Fprintf(formView, "\n  [ERROR] %s", msg)
 }
 
 func (v *ProduceMessageView) Submit() error {
