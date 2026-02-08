@@ -50,13 +50,13 @@ type Header struct {
 }
 
 type Message struct {
-	Key        string
-	Value      string
-	Headers    []Header
-	Partition  int
-	Offset     int64
-	Timestamp  time.Time
-	Topic      string
+	Key       string
+	Value     string
+	Headers   []Header
+	Partition int
+	Offset    int64
+	Timestamp time.Time
+	Topic     string
 }
 
 type MessageFilter struct {

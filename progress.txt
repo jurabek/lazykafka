@@ -97,3 +97,15 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Use json.Unmarshal + MarshalIndent for pretty-printing JSON
   - gocui.KeyPgup/gocui.KeyPgdn for page navigation
 ---
+
+## Sun Feb  8 01:58:06 PM CET 2026 - US-009
+- Created MessageDetailView with scrolling support
+- View uses MessageDetailViewModel's formatted display lines
+- Scrolling bounds-checked against viewport height
+- Files changed: internal/tui/views/message_detail_view.go
+- **Learnings for future iterations:**
+  - Use fmt.Fprintln for writing to gocui views (not WriteString)
+  - SetOrigin for scrolling content within view
+  - SetWrap=false for scrollable detail views
+  - OnChangeFunc uses types.ChangeEvent parameter
+---

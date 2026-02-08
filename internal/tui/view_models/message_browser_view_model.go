@@ -15,16 +15,16 @@ import (
 type MessageSelectedFunc func(msg *models.Message)
 
 type MessageBrowserViewModel struct {
-	mu                  sync.RWMutex
-	messages            []models.Message
-	selectedIndex       int
-	currentFilter       models.MessageFilter
-	currentTopic        string
-	onChange            types.OnChangeFunc
-	commandBindings     []*types.CommandBinding
-	onMessageSelected   MessageSelectedFunc
-	kafkaClient         kafka.KafkaClient
-	onError             func(err error)
+	mu                sync.RWMutex
+	messages          []models.Message
+	selectedIndex     int
+	currentFilter     models.MessageFilter
+	currentTopic      string
+	onChange          types.OnChangeFunc
+	commandBindings   []*types.CommandBinding
+	onMessageSelected MessageSelectedFunc
+	kafkaClient       kafka.KafkaClient
+	onError           func(err error)
 }
 
 func NewMessageBrowserViewModel() *MessageBrowserViewModel {
