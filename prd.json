@@ -225,7 +225,7 @@
         "Tab state persists when switching topics"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
