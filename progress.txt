@@ -395,3 +395,27 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - To access TopicDetailView from keybindings.go, use type assertion: h.layout.detailViews[sidebarTopics].(*views.TopicDetailView)
   - applyCurrentFilterField reads from input ViewBuffer and updates pending state before applying
 ---
+## Thu Feb 12 2026 15:43 - US-034
+- US-034 was already implemented in previous iterations
+- Tail mode state (isTailing, tailCancel, tailDone) already existed
+- StartTailing() and StopTailing() methods already implemented
+- Files changed: prd.json (marked as passing)
+- **Learnings for future iterations:**
+  - Always check if acceptance criteria are already met before implementing
+  - Previous iterations added stub implementations when extending interfaces
+  - Tailing uses context.WithCancel for goroutine management with Done channel for synchronization
+---
+## Thu Feb 12 2026 15:43 - US-035
+- Added 't' keybinding to messages view to toggle tail mode
+- Updated GetTitle() to show 'TAILING' indicator when tail mode is active
+- Modified MoveUp/MoveDown to stop tailing when user navigates (manual navigation conflicts with auto-refresh)
+- Added stopTailingIfNeeded() method to Layout for panel switching
+- Added toggleTailMode() handler in keybindings.go with status messages
+- Added comprehensive tests: IsTailing, StartTailing, StopTailing, MoveUpStopsTailing, MoveDownStopsTailing
+- Files changed: internal/tui/keybindings.go, internal/tui/layout.go, internal/tui/view_models/message_browser_view_model.go, internal/tui/view_models/message_browser_view_model_test.go, prd.json
+- **Learnings for future iterations:**
+  - Tail mode should stop on manual navigation to avoid conflict with auto-refresh
+  - Panel navigation (h/l/arrows/1-4) should also stop tailing
+  - Use layout.MainViewModel().MessageBrowserVM() to access MessageBrowserViewModel from keybindings
+  - gofmt aligns struct fields automatically
+---
