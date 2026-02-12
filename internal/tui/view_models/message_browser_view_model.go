@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/kafka"
@@ -20,26 +21,32 @@ const (
 	FilterFieldOffsetMode = 1
 	FilterFieldLimit      = 2
 	filterFieldCount      = 3
+
+	tailPollInterval = 2 * time.Second
+	tailMessageLimit = 100
 )
 
 type MessageSelectedFunc func(msg *models.Message)
 
 type MessageBrowserViewModel struct {
-	mu                sync.RWMutex
-	messages          []models.Message
-	selectedIndex     int
-	currentFilter     models.MessageFilter
-	currentTopic      string
+	mu                 sync.RWMutex
+	messages           []models.Message
+	selectedIndex      int
+	currentFilter      models.MessageFilter
+	currentTopic       string
 	filterPopupOpen    bool
 	currentFilterField int
 	pendingPartition   int
 	pendingOffsetMode  string
 	pendingLimit       int
-	onChange          types.OnChangeFunc
-	commandBindings   []*types.CommandBinding
-	onMessageSelected MessageSelectedFunc
-	kafkaClient       kafka.KafkaClient
-	onError           func(err error)
+	isTailing          bool
+	tailCancel         context.CancelFunc
+	tailDone           chan struct{}
+	onChange           types.OnChangeFunc
+	commandBindings    []*types.CommandBinding
+	onMessageSelected  MessageSelectedFunc
+	kafkaClient        kafka.KafkaClient
+	onError            func(err error)
 }
 
 func NewMessageBrowserViewModel() *MessageBrowserViewModel {
@@ -110,6 +117,17 @@ func (vm *MessageBrowserViewModel) GetItemCount() int {
 
 func (vm *MessageBrowserViewModel) MoveUp() error {
 	vm.mu.Lock()
+	if vm.isTailing {
+		vm.isTailing = false
+		if vm.tailCancel != nil {
+			vm.tailCancel()
+		}
+		if vm.tailDone != nil {
+			<-vm.tailDone
+		}
+		vm.tailCancel = nil
+		vm.tailDone = nil
+	}
 	if vm.selectedIndex > 0 {
 		vm.selectedIndex--
 		msg := &vm.messages[vm.selectedIndex]
@@ -126,6 +144,17 @@ func (vm *MessageBrowserViewModel) MoveUp() error {
 
 func (vm *MessageBrowserViewModel) MoveDown() error {
 	vm.mu.Lock()
+	if vm.isTailing {
+		vm.isTailing = false
+		if vm.tailCancel != nil {
+			vm.tailCancel()
+		}
+		if vm.tailDone != nil {
+			<-vm.tailDone
+		}
+		vm.tailCancel = nil
+		vm.tailDone = nil
+	}
 	if vm.selectedIndex < len(vm.messages)-1 {
 		vm.selectedIndex++
 		msg := &vm.messages[vm.selectedIndex]
@@ -170,6 +199,7 @@ func (vm *MessageBrowserViewModel) GetTitle() string {
 	vm.mu.RLock()
 	topic := vm.currentTopic
 	filter := vm.currentFilter
+	isTailing := vm.isTailing
 	vm.mu.RUnlock()
 
 	if topic == "" {
@@ -182,7 +212,11 @@ func (vm *MessageBrowserViewModel) GetTitle() string {
 	}
 	offsetMode := offsetToMode(filter.Offset)
 
-	return fmt.Sprintf("%s [P:%s O:%s L:%d]", topic, partitionLabel, offsetMode, filter.Limit)
+	title := fmt.Sprintf("%s [P:%s O:%s L:%d]", topic, partitionLabel, offsetMode, filter.Limit)
+	if isTailing {
+		title += " [TAILING]"
+	}
+	return title
 }
 
 func (vm *MessageBrowserViewModel) GetName() string {
@@ -394,6 +428,112 @@ func (vm *MessageBrowserViewModel) GetPendingLimit() int {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 	return vm.pendingLimit
+}
+
+func (vm *MessageBrowserViewModel) IsTailing() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.isTailing
+}
+
+func (vm *MessageBrowserViewModel) StartTailing() {
+	vm.mu.Lock()
+	if vm.isTailing {
+		vm.mu.Unlock()
+		return
+	}
+
+	topic := vm.currentTopic
+	client := vm.kafkaClient
+	onError := vm.onError
+
+	if client == nil || topic == "" {
+		vm.mu.Unlock()
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	vm.isTailing = true
+	vm.tailCancel = cancel
+	vm.tailDone = done
+	vm.mu.Unlock()
+
+	vm.notifyChange(types.FieldItems)
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(tailPollInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				filter := models.MessageFilter{
+					Partition: -1,
+					Offset:    -1,
+					Limit:     tailMessageLimit,
+					Format:    "json",
+				}
+
+				messages, err := client.ConsumeMessages(ctx, topic, filter)
+				if err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					slog.Error("tail: failed to load messages", slog.Any("error", err))
+					if onError != nil {
+						onError(err)
+					}
+					vm.mu.Lock()
+					vm.isTailing = false
+					vm.tailCancel = nil
+					vm.tailDone = nil
+					vm.mu.Unlock()
+					vm.notifyChange(types.FieldItems)
+					return
+				}
+
+				vm.mu.Lock()
+				vm.messages = messages
+				if vm.selectedIndex >= len(messages) {
+					vm.selectedIndex = len(messages) - 1
+				}
+				if vm.selectedIndex < 0 && len(messages) > 0 {
+					vm.selectedIndex = 0
+				}
+				vm.mu.Unlock()
+
+				vm.notifyChange(types.FieldItems)
+			}
+		}
+	}()
+}
+
+func (vm *MessageBrowserViewModel) StopTailing() {
+	vm.mu.Lock()
+	if !vm.isTailing {
+		vm.mu.Unlock()
+		return
+	}
+
+	cancel := vm.tailCancel
+	done := vm.tailDone
+	vm.isTailing = false
+	vm.tailCancel = nil
+	vm.tailDone = nil
+	vm.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+
+	vm.notifyChange(types.FieldItems)
 }
 
 func offsetToMode(offset int64) string {

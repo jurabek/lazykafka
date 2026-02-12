@@ -290,11 +290,15 @@ func (l *Layout) renderHelpView(v *gocui.View, maxX, maxY, helpHeight int) {
 }
 
 func (l *Layout) NextPanel(g *gocui.Gui) {
+	// Stop tailing if leaving messages panel
+	l.stopTailingIfNeeded()
 	l.activeViewIndex = (l.activeViewIndex + 1) % len(l.sidebarViews)
 	l.refreshAllViews(g)
 }
 
 func (l *Layout) PrevPanel(g *gocui.Gui) {
+	// Stop tailing if leaving messages panel
+	l.stopTailingIfNeeded()
 	l.activeViewIndex--
 	if l.activeViewIndex < 0 {
 		l.activeViewIndex = len(l.sidebarViews) - 1
@@ -304,8 +308,19 @@ func (l *Layout) PrevPanel(g *gocui.Gui) {
 
 func (l *Layout) JumpToPanel(g *gocui.Gui, index int) {
 	if index >= 0 && index < len(l.sidebarViews) {
+		// Stop tailing if leaving messages panel
+		l.stopTailingIfNeeded()
 		l.activeViewIndex = index
 		l.refreshAllViews(g)
+	}
+}
+
+// stopTailingIfNeeded stops tail mode if currently active
+func (l *Layout) stopTailingIfNeeded() {
+	messageBrowserVM := l.mainVM.MessageBrowserVM()
+	if messageBrowserVM.IsTailing() {
+		messageBrowserVM.StopTailing()
+		l.SetStatusMessage("Tail mode stopped")
 	}
 }
 

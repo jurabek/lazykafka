@@ -420,11 +420,32 @@ func (h *keyBindingHandler) setupMessageBrowserBindings(g *gocui.Gui) error {
 		return err
 	}
 
+	// Bind 't' key to toggle tail mode
+	if err := g.SetKeybinding(viewName, 't', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.toggleTailMode()
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (h *keyBindingHandler) showMessageFilter() {
 	if topicDetailView, ok := h.layout.detailViews[sidebarTopics].(*views.TopicDetailView); ok {
 		topicDetailView.ShowFilterPopup()
+	}
+}
+
+func (h *keyBindingHandler) toggleTailMode() {
+	mainVM := h.layout.MainViewModel()
+	messageBrowserVM := mainVM.MessageBrowserVM()
+
+	if messageBrowserVM.IsTailing() {
+		messageBrowserVM.StopTailing()
+		h.layout.SetStatusMessage("Tail mode stopped")
+	} else {
+		messageBrowserVM.StartTailing()
+		h.layout.SetStatusMessage("Tail mode started")
 	}
 }

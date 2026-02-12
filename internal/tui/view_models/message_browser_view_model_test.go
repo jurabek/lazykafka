@@ -2,16 +2,21 @@ package viewmodel
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jurabek/lazykafka/internal/models"
 )
 
 type mockKafkaClient struct {
+	mu                 sync.Mutex
 	consumeMessages    []models.Message
 	consumeErr         error
 	consumeCalledWith  models.MessageFilter
 	consumeCalledTopic string
+	consumeCallCount   atomic.Int32
 }
 
 func (m *mockKafkaClient) Connect(_ context.Context) error { return nil }
@@ -27,9 +32,14 @@ func (m *mockKafkaClient) ProduceMessage(_ context.Context, _ string, _ string, 
 	return nil
 }
 func (m *mockKafkaClient) ConsumeMessages(_ context.Context, topic string, filter models.MessageFilter) ([]models.Message, error) {
+	m.consumeCallCount.Add(1)
+	m.mu.Lock()
 	m.consumeCalledWith = filter
 	m.consumeCalledTopic = topic
-	return m.consumeMessages, m.consumeErr
+	messages := m.consumeMessages
+	err := m.consumeErr
+	m.mu.Unlock()
+	return messages, err
 }
 func (m *mockKafkaClient) DeleteTopic(_ context.Context, _ string) error { return nil }
 func (m *mockKafkaClient) GetTopicConfig(_ context.Context, _ string) (models.TopicConfig, error) {
@@ -382,6 +392,7 @@ func TestGetTitleWithFilter(t *testing.T) {
 		name      string
 		topic     string
 		filter    models.MessageFilter
+		isTailing bool
 		wantTitle string
 	}{
 		{
@@ -397,6 +408,7 @@ func TestGetTitleWithFilter(t *testing.T) {
 				Offset:    -1,
 				Limit:     100,
 			},
+			isTailing: false,
 			wantTitle: "my-topic [P:all O:newest L:100]",
 		},
 		{
@@ -407,7 +419,19 @@ func TestGetTitleWithFilter(t *testing.T) {
 				Offset:    0,
 				Limit:     50,
 			},
+			isTailing: false,
 			wantTitle: "my-topic [P:3 O:oldest L:50]",
+		},
+		{
+			name:  "tailing mode active",
+			topic: "my-topic",
+			filter: models.MessageFilter{
+				Partition: -1,
+				Offset:    -1,
+				Limit:     100,
+			},
+			isTailing: true,
+			wantTitle: "my-topic [P:all O:newest L:100] [TAILING]",
 		},
 	}
 
@@ -418,10 +442,186 @@ func TestGetTitleWithFilter(t *testing.T) {
 			vm := NewMessageBrowserViewModel()
 			vm.currentTopic = tt.topic
 			vm.currentFilter = tt.filter
+			vm.isTailing = tt.isTailing
 
 			if got := vm.GetTitle(); got != tt.wantTitle {
 				t.Errorf("GetTitle() = %v, want %v", got, tt.wantTitle)
 			}
 		})
+	}
+}
+
+func TestIsTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+
+	// Initially not tailing
+	if vm.IsTailing() {
+		t.Error("expected IsTailing() to be false initially")
+	}
+
+	// Set tailing state
+	vm.isTailing = true
+
+	if !vm.IsTailing() {
+		t.Error("expected IsTailing() to be true after setting")
+	}
+}
+
+func TestStartTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	mock := &mockKafkaClient{}
+	vm.SetKafkaClient(mock)
+	vm.SetTopic("test-topic")
+
+	// Start tailing
+	vm.StartTailing()
+
+	// Give goroutine time to start
+	time.Sleep(100 * time.Millisecond)
+
+	if !vm.IsTailing() {
+		t.Error("expected IsTailing() to be true after StartTailing")
+	}
+
+	// Clean up
+	vm.StopTailing()
+
+	if vm.IsTailing() {
+		t.Error("expected IsTailing() to be false after StopTailing")
+	}
+}
+
+func TestStopTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	mock := &mockKafkaClient{}
+	vm.SetKafkaClient(mock)
+	vm.SetTopic("test-topic")
+
+	// Start and then stop tailing
+	vm.StartTailing()
+	time.Sleep(100 * time.Millisecond)
+	vm.StopTailing()
+
+	if vm.IsTailing() {
+		t.Error("expected IsTailing() to be false after StopTailing")
+	}
+
+	// Verify tailCancel and tailDone are cleared
+	vm.mu.RLock()
+	cancel := vm.tailCancel
+	done := vm.tailDone
+	vm.mu.RUnlock()
+
+	if cancel != nil {
+		t.Error("expected tailCancel to be nil after StopTailing")
+	}
+	if done != nil {
+		t.Error("expected tailDone to be nil after StopTailing")
+	}
+}
+
+func TestStopTailingWhenNotTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+
+	// Should not panic when not tailing
+	vm.StopTailing()
+
+	if vm.IsTailing() {
+		t.Error("expected IsTailing() to remain false")
+	}
+}
+
+func TestStartTailingWhenAlreadyTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	mock := &mockKafkaClient{}
+	vm.SetKafkaClient(mock)
+	vm.SetTopic("test-topic")
+
+	// Start tailing twice
+	vm.StartTailing()
+	time.Sleep(100 * time.Millisecond)
+
+	// Check that tailing is active
+	isTailingFirst := vm.IsTailing()
+	vm.StartTailing()
+	isTailingSecond := vm.IsTailing()
+
+	// Should still be tailing (idempotent)
+	if !isTailingFirst || !isTailingSecond {
+		t.Error("expected to remain tailing when StartTailing called while already tailing")
+	}
+
+	// Clean up
+	vm.StopTailing()
+}
+
+func TestMoveUpStopsTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	mock := &mockKafkaClient{
+		consumeMessages: []models.Message{
+			{Key: "msg1", Value: "value1", Partition: 0, Offset: 0},
+			{Key: "msg2", Value: "value2", Partition: 0, Offset: 1},
+		},
+	}
+	vm.SetKafkaClient(mock)
+	vm.SetTopic("test-topic")
+
+	// Load messages and start tailing
+	vm.messages = mock.consumeMessages
+	vm.StartTailing()
+	time.Sleep(100 * time.Millisecond)
+
+	if !vm.IsTailing() {
+		t.Error("expected to be tailing")
+	}
+
+	// Move up should stop tailing
+	vm.MoveUp()
+
+	if vm.IsTailing() {
+		t.Error("expected tailing to stop after MoveUp")
+	}
+}
+
+func TestMoveDownStopsTailing(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	mock := &mockKafkaClient{
+		consumeMessages: []models.Message{
+			{Key: "msg1", Value: "value1", Partition: 0, Offset: 0},
+			{Key: "msg2", Value: "value2", Partition: 0, Offset: 1},
+		},
+	}
+	vm.SetKafkaClient(mock)
+	vm.SetTopic("test-topic")
+
+	// Load messages and start tailing
+	vm.messages = mock.consumeMessages
+	vm.selectedIndex = 0
+	vm.StartTailing()
+	time.Sleep(100 * time.Millisecond)
+
+	if !vm.IsTailing() {
+		t.Error("expected to be tailing")
+	}
+
+	// Move down should stop tailing
+	vm.MoveDown()
+
+	if vm.IsTailing() {
+		t.Error("expected tailing to stop after MoveDown")
 	}
 }
