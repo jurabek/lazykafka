@@ -2,6 +2,8 @@ package views
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/models"
@@ -11,6 +13,8 @@ import (
 
 const (
 	messageDetailPopup = "message_detail_popup"
+	filterPopupView    = "filter_popup"
+	filterPopupInput   = "filter_popup_input"
 )
 
 type TopicDetailView struct {
@@ -219,8 +223,167 @@ func (v *TopicDetailView) closeMessageDetail() {
 		return
 	}
 	v.gui.Update(func(g *gocui.Gui) error {
-		// Delete the popup view
 		_ = g.DeleteView(messageDetailPopup)
+		return nil
+	})
+}
+
+func (v *TopicDetailView) ShowFilterPopup() {
+	if v.gui == nil {
+		return
+	}
+
+	v.messageBrowserVM.ShowFilterPopup()
+
+	v.gui.Update(func(g *gocui.Gui) error {
+		maxX, maxY := g.Size()
+		width := 50
+		height := 10
+		x0 := (maxX - width) / 2
+		y0 := (maxY - height) / 2
+		x1 := x0 + width
+		y1 := y0 + height
+
+		popupView, err := g.SetView(filterPopupView, x0, y0, x1, y1)
+		if err != nil && err != gocui.ErrUnknownView {
+			return err
+		}
+		popupView.Title = " Filter Messages "
+		popupView.Editable = false
+
+		inputView, err := g.SetView(filterPopupInput, x0+2, y1-2, x1-2, y1-1)
+		if err != nil && err != gocui.ErrUnknownView {
+			return err
+		}
+		inputView.Editable = true
+		inputView.Frame = false
+
+		v.renderFilterPopup(g)
+		v.setupFilterKeybindings(g)
+
+		g.SetViewOnTop(filterPopupView)
+		g.SetViewOnTop(filterPopupInput)
+		_, _ = g.SetCurrentView(filterPopupInput)
+		return nil
+	})
+}
+
+func (v *TopicDetailView) renderFilterPopup(g *gocui.Gui) {
+	popupView, err := g.View(filterPopupView)
+	if err != nil {
+		return
+	}
+	popupView.Clear()
+
+	currentField := v.messageBrowserVM.GetCurrentFilterField()
+	partition := v.messageBrowserVM.GetPendingPartition()
+	offsetMode := v.messageBrowserVM.GetPendingOffsetMode()
+	limit := v.messageBrowserVM.GetPendingLimit()
+
+	partitionLabel := "all"
+	if partition >= 0 {
+		partitionLabel = fmt.Sprintf("%d", partition)
+	}
+
+	fields := []struct {
+		label string
+		value string
+	}{
+		{"Partition (-1=all)", partitionLabel},
+		{"Offset Mode", offsetMode},
+		{"Limit", fmt.Sprintf("%d", limit)},
+	}
+
+	for i, f := range fields {
+		prefix := "  "
+		if i == currentField {
+			prefix = "> "
+		}
+		fmt.Fprintf(popupView, "%s%s: %s\n", prefix, f.label, f.value)
+	}
+
+	fmt.Fprintln(popupView, "\n  Tab: next | Enter: apply | Esc: cancel")
+
+	// Update input view with current field value
+	inputView, err := g.View(filterPopupInput)
+	if err != nil {
+		return
+	}
+	inputView.Clear()
+	inputView.SetCursor(0, 0)
+
+	switch currentField {
+	case viewmodel.FilterFieldPartition:
+		fmt.Fprint(inputView, fmt.Sprintf("%d", partition))
+	case viewmodel.FilterFieldOffsetMode:
+		fmt.Fprint(inputView, offsetMode)
+	case viewmodel.FilterFieldLimit:
+		fmt.Fprint(inputView, fmt.Sprintf("%d", limit))
+	}
+}
+
+func (v *TopicDetailView) setupFilterKeybindings(g *gocui.Gui) {
+	_ = g.SetKeybinding(filterPopupInput, gocui.KeyEsc, gocui.ModNone, func(g *gocui.Gui, view *gocui.View) error {
+		v.closeFilterPopup()
+		return nil
+	})
+
+	_ = g.SetKeybinding(filterPopupInput, gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, view *gocui.View) error {
+		v.applyCurrentFilterField(g)
+		v.messageBrowserVM.NextFilterField()
+		v.renderFilterPopup(g)
+		return nil
+	})
+
+	_ = g.SetKeybinding(filterPopupInput, gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, view *gocui.View) error {
+		v.applyCurrentFilterField(g)
+		v.messageBrowserVM.ApplyFilter()
+		v.closeFilterPopup()
+		return nil
+	})
+}
+
+func (v *TopicDetailView) applyCurrentFilterField(g *gocui.Gui) {
+	inputView, err := g.View(filterPopupInput)
+	if err != nil {
+		return
+	}
+
+	value := strings.TrimSpace(inputView.ViewBuffer())
+	currentField := v.messageBrowserVM.GetCurrentFilterField()
+
+	switch currentField {
+	case viewmodel.FilterFieldPartition:
+		if val, err := strconv.Atoi(value); err == nil {
+			v.messageBrowserVM.SetPendingPartition(val)
+		}
+	case viewmodel.FilterFieldOffsetMode:
+		mode := strings.ToLower(value)
+		if mode == viewmodel.OffsetModeNewest || mode == viewmodel.OffsetModeOldest {
+			v.messageBrowserVM.SetPendingOffsetMode(mode)
+		}
+	case viewmodel.FilterFieldLimit:
+		if val, err := strconv.Atoi(value); err == nil && val > 0 {
+			v.messageBrowserVM.SetPendingLimit(val)
+		}
+	}
+}
+
+func (v *TopicDetailView) closeFilterPopup() {
+	if v.gui == nil {
+		return
+	}
+	v.messageBrowserVM.CloseFilterPopup()
+	v.gui.Update(func(g *gocui.Gui) error {
+		_ = g.DeleteView(filterPopupInput)
+		_ = g.DeleteView(filterPopupView)
+		g.DeleteKeybindings(filterPopupInput)
+
+		// Update the message browser title to reflect current filter
+		if msgView, err := g.View(v.messageBrowserVM.GetName()); err == nil {
+			msgView.Title = v.messageBrowserVM.GetTitle()
+		}
+
 		return nil
 	})
 }

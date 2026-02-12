@@ -329,3 +329,99 @@ func TestNewMessageBrowserViewModelDefaults(t *testing.T) {
 		t.Error("filterPopupOpen should be false by default")
 	}
 }
+
+func TestFilterFieldNavigation(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	vm.ShowFilterPopup()
+
+	if got := vm.GetCurrentFilterField(); got != FilterFieldPartition {
+		t.Errorf("initial field = %v, want %v", got, FilterFieldPartition)
+	}
+
+	vm.NextFilterField()
+	if got := vm.GetCurrentFilterField(); got != FilterFieldOffsetMode {
+		t.Errorf("after first next = %v, want %v", got, FilterFieldOffsetMode)
+	}
+
+	vm.NextFilterField()
+	if got := vm.GetCurrentFilterField(); got != FilterFieldLimit {
+		t.Errorf("after second next = %v, want %v", got, FilterFieldLimit)
+	}
+
+	vm.NextFilterField()
+	if got := vm.GetCurrentFilterField(); got != FilterFieldPartition {
+		t.Errorf("after wrap = %v, want %v", got, FilterFieldPartition)
+	}
+}
+
+func TestTogglePendingOffsetMode(t *testing.T) {
+	t.Parallel()
+
+	vm := NewMessageBrowserViewModel()
+	vm.ShowFilterPopup()
+
+	if got := vm.GetPendingOffsetMode(); got != OffsetModeNewest {
+		t.Errorf("initial mode = %v, want %v", got, OffsetModeNewest)
+	}
+
+	vm.TogglePendingOffsetMode()
+	if got := vm.GetPendingOffsetMode(); got != OffsetModeOldest {
+		t.Errorf("after toggle = %v, want %v", got, OffsetModeOldest)
+	}
+
+	vm.TogglePendingOffsetMode()
+	if got := vm.GetPendingOffsetMode(); got != OffsetModeNewest {
+		t.Errorf("after second toggle = %v, want %v", got, OffsetModeNewest)
+	}
+}
+
+func TestGetTitleWithFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		topic     string
+		filter    models.MessageFilter
+		wantTitle string
+	}{
+		{
+			name:      "empty topic",
+			topic:     "",
+			wantTitle: "Messages",
+		},
+		{
+			name:  "all partitions newest",
+			topic: "my-topic",
+			filter: models.MessageFilter{
+				Partition: -1,
+				Offset:    -1,
+				Limit:     100,
+			},
+			wantTitle: "my-topic [P:all O:newest L:100]",
+		},
+		{
+			name:  "specific partition oldest",
+			topic: "my-topic",
+			filter: models.MessageFilter{
+				Partition: 3,
+				Offset:    0,
+				Limit:     50,
+			},
+			wantTitle: "my-topic [P:3 O:oldest L:50]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			vm := NewMessageBrowserViewModel()
+			vm.currentTopic = tt.topic
+			vm.currentFilter = tt.filter
+
+			if got := vm.GetTitle(); got != tt.wantTitle {
+				t.Errorf("GetTitle() = %v, want %v", got, tt.wantTitle)
+			}
+		})
+	}
+}

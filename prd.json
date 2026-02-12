@@ -501,7 +501,7 @@
         "Show active filter in message browser title"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

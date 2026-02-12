@@ -15,6 +15,11 @@ import (
 const (
 	OffsetModeNewest = "newest"
 	OffsetModeOldest = "oldest"
+
+	FilterFieldPartition  = 0
+	FilterFieldOffsetMode = 1
+	FilterFieldLimit      = 2
+	filterFieldCount      = 3
 )
 
 type MessageSelectedFunc func(msg *models.Message)
@@ -25,10 +30,11 @@ type MessageBrowserViewModel struct {
 	selectedIndex     int
 	currentFilter     models.MessageFilter
 	currentTopic      string
-	filterPopupOpen   bool
-	pendingPartition  int
-	pendingOffsetMode string
-	pendingLimit      int
+	filterPopupOpen    bool
+	currentFilterField int
+	pendingPartition   int
+	pendingOffsetMode  string
+	pendingLimit       int
 	onChange          types.OnChangeFunc
 	commandBindings   []*types.CommandBinding
 	onMessageSelected MessageSelectedFunc
@@ -169,7 +175,14 @@ func (vm *MessageBrowserViewModel) GetTitle() string {
 	if topic == "" {
 		return "Messages"
 	}
-	return fmt.Sprintf("%s [P:%d L:%d]", topic, filter.Partition, filter.Limit)
+
+	partitionLabel := "all"
+	if filter.Partition >= 0 {
+		partitionLabel = fmt.Sprintf("%d", filter.Partition)
+	}
+	offsetMode := offsetToMode(filter.Offset)
+
+	return fmt.Sprintf("%s [P:%s O:%s L:%d]", topic, partitionLabel, offsetMode, filter.Limit)
 }
 
 func (vm *MessageBrowserViewModel) GetName() string {
@@ -275,9 +288,32 @@ func (vm *MessageBrowserViewModel) ShowFilterPopup() {
 	defer vm.mu.Unlock()
 
 	vm.filterPopupOpen = true
+	vm.currentFilterField = FilterFieldPartition
 	vm.pendingPartition = vm.currentFilter.Partition
 	vm.pendingLimit = vm.currentFilter.Limit
 	vm.pendingOffsetMode = offsetToMode(vm.currentFilter.Offset)
+}
+
+func (vm *MessageBrowserViewModel) GetCurrentFilterField() int {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.currentFilterField
+}
+
+func (vm *MessageBrowserViewModel) NextFilterField() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.currentFilterField = (vm.currentFilterField + 1) % filterFieldCount
+}
+
+func (vm *MessageBrowserViewModel) TogglePendingOffsetMode() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	if vm.pendingOffsetMode == OffsetModeNewest {
+		vm.pendingOffsetMode = OffsetModeOldest
+	} else {
+		vm.pendingOffsetMode = OffsetModeNewest
+	}
 }
 
 func (vm *MessageBrowserViewModel) IsFilterPopupOpen() bool {

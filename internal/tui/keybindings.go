@@ -8,6 +8,7 @@ import (
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/models"
 	"github.com/jurabek/lazykafka/internal/tui/types"
+	"github.com/jurabek/lazykafka/internal/tui/views"
 )
 
 type KeyBindingHandler interface {
@@ -35,6 +36,10 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 	}
 
 	if err := h.setupTopicDetailBindings(g); err != nil {
+		return err
+	}
+
+	if err := h.setupMessageBrowserBindings(g); err != nil {
 		return err
 	}
 
@@ -394,4 +399,32 @@ func (h *keyBindingHandler) showTopicConfig() error {
 func (h *keyBindingHandler) refreshConsumerGroupOffsets() error {
 	mainVM := h.layout.MainViewModel()
 	return mainVM.ConsumerGroupDetailVM().Refresh()
+}
+
+func (h *keyBindingHandler) setupMessageBrowserBindings(g *gocui.Gui) error {
+	viewName := "messages"
+
+	// Bind message browser command bindings (j/k/arrows/r/Enter)
+	mainVM := h.layout.MainViewModel()
+	messageBrowserVM := mainVM.MessageBrowserVM()
+	bindings := messageBrowserVM.GetCommandBindings()
+	if err := h.bindViewCommands(g, viewName, bindings); err != nil {
+		return err
+	}
+
+	// Bind 'f' key to open filter popup
+	if err := g.SetKeybinding(viewName, 'f', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		h.showMessageFilter()
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *keyBindingHandler) showMessageFilter() {
+	if topicDetailView, ok := h.layout.detailViews[sidebarTopics].(*views.TopicDetailView); ok {
+		topicDetailView.ShowFilterPopup()
+	}
 }

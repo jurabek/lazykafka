@@ -379,3 +379,19 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - Pending filter fields allow popup to edit without affecting current filter until Apply
   - ClearFilter resets to defaults AND reloads messages immediately
 ---
+## Thu Feb 12 2026 - US-033
+- Added 'f' keybinding to messages view to open filter popup
+- Created filter popup UI in TopicDetailView with Partition, Offset Mode, Limit fields
+- Added Tab navigation between fields, Enter to apply, Esc to cancel
+- Updated GetTitle() to show active filter: topic [P:all O:newest L:100]
+- Added filter field constants and navigation methods to MessageBrowserViewModel
+- Added unit tests for filter field navigation, offset mode toggle, and title formatting
+- Also bound message browser command bindings (j/k/arrows/r/Enter) to the "messages" gocui view
+- Files changed: internal/tui/keybindings.go, internal/tui/view_models/message_browser_view_model.go, internal/tui/view_models/message_browser_view_model_test.go, internal/tui/views/topic_detail_view.go
+- **Learnings for future iterations:**
+  - The "messages" view is NOT a sidebar view - its command bindings were not auto-bound via keybindings.go; added setupMessageBrowserBindings to fix this
+  - Filter popup follows same pattern as showMessageDetail: create gocui views, set keybindings, bring to top
+  - Filter popup uses separate display view + input view (same pattern as TopicConfigView)
+  - To access TopicDetailView from keybindings.go, use type assertion: h.layout.detailViews[sidebarTopics].(*views.TopicDetailView)
+  - applyCurrentFilterField reads from input ViewBuffer and updates pending state before applying
+---
