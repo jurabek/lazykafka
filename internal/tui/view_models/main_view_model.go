@@ -88,6 +88,7 @@ func (vm *MainViewModel) SetOnError(fn func(err error)) {
 	vm.topicsVM.SetOnError(fn)
 	vm.topicDetailVM.SetOnError(fn)
 	vm.messageBrowserVM.SetOnError(fn)
+	vm.consumerGroupDetailVM.SetOnError(fn)
 }
 
 func (vm *MainViewModel) setupBrokerSelectionCallback() {
@@ -170,6 +171,7 @@ func (vm *MainViewModel) loadDependentData(broker *models.Broker) {
 	vm.topicsVM.SetKafkaClient(client)
 	vm.topicDetailVM.SetKafkaClient(client)
 	vm.messageBrowserVM.SetKafkaClient(client)
+	vm.consumerGroupDetailVM.SetKafkaClient(client)
 
 	vm.topicsVM.LoadForBroker(broker)
 	vm.consumerGroupsVM.LoadForBroker(broker)

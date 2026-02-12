@@ -242,6 +242,14 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "edit topic config",
 			BlockOnPopup: true,
 		},
+		{
+			ViewName:     panelConsumerGroups,
+			Key:          'r',
+			Modifier:     gocui.ModNone,
+			Handler:      h.refreshConsumerGroupOffsets,
+			Description:  "refresh offsets",
+			BlockOnPopup: true,
+		},
 	}
 }
 
@@ -381,4 +389,9 @@ func (h *keyBindingHandler) showTopicConfig() error {
 	}
 
 	return h.layout.ShowTopicConfigPopup(selectedTopic.Name, config)
+}
+
+func (h *keyBindingHandler) refreshConsumerGroupOffsets() error {
+	mainVM := h.layout.MainViewModel()
+	return mainVM.ConsumerGroupDetailVM().Refresh()
 }

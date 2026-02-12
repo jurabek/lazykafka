@@ -43,6 +43,7 @@ type ConsumerGroupOffset struct {
 	Partition int
 	Lag       int64
 	Offset    int64
+	EndOffset int64
 }
 
 type Header struct {
@@ -114,10 +115,10 @@ func MockConsumerGroups() []ConsumerGroup {
 
 func MockConsumerGroupOffsets(groupName string) []ConsumerGroupOffset {
 	return []ConsumerGroupOffset{
-		{Topic: "orders", Partition: 0, Lag: 0, Offset: 500},
-		{Topic: "orders", Partition: 1, Lag: 10, Offset: 490},
-		{Topic: "orders", Partition: 2, Lag: 5, Offset: 495},
-		{Topic: "payments", Partition: 0, Lag: 0, Offset: 1000},
+		{Topic: "orders", Partition: 0, Lag: 0, Offset: 500, EndOffset: 500},
+		{Topic: "orders", Partition: 1, Lag: 10, Offset: 490, EndOffset: 500},
+		{Topic: "orders", Partition: 2, Lag: 5, Offset: 495, EndOffset: 500},
+		{Topic: "payments", Partition: 0, Lag: 0, Offset: 1000, EndOffset: 1000},
 	}
 }
 

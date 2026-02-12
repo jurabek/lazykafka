@@ -466,6 +466,7 @@ func (c *franzClient) GetConsumerGroupOffsets(ctx context.Context, groupName str
 				Topic:     topic,
 				Partition: int(partition),
 				Offset:    memberLag.Commit.At,
+				EndOffset: memberLag.End.Offset,
 				Lag:       memberLag.Lag,
 			})
 		}
