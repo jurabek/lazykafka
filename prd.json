@@ -470,7 +470,7 @@
         "Handle empty offset list gracefully"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

@@ -349,3 +349,19 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - DescribedGroupLag has Error() method that checks DescribeErr then FetchErr
   - GroupMemberLag.Commit.At gives the committed offset, GroupMemberLag.Lag gives calculated lag
 ---
+## Thu Feb 12 2026 - US-031
+- Modified ConsumerGroupDetailView to show offset table: Partition | Topic | Current Offset | End Offset | Lag
+- Added EndOffset field to ConsumerGroupOffset model
+- Updated franz_client.go to populate EndOffset from memberLag.End.Offset
+- Replaced mock data with real KafkaClient calls (fallback to mock when no client)
+- Added 'r' keybinding to refresh offset data (bound to consumer_groups panel)
+- Highlighted rows with lag > 100 using ANSI red color escape codes
+- Handled empty offset list with "No offsets available" message
+- Wired KafkaClient and OnError to ConsumerGroupDetailViewModel via MainViewModel
+- Files changed: internal/kafka/franz_client.go, internal/models/data.go, internal/tui/keybindings.go, internal/tui/view_models/consumer_group_detail_view_model.go, internal/tui/view_models/main_view_model.go
+- **Learnings for future iterations:**
+  - Detail views don't get command bindings auto-bound like sidebar views; add explicit bindings in getGlobalBindings
+  - GroupMemberLag.End.Offset provides the end offset for lag calculation display
+  - gocui v0.5.0 has an escape interpreter that supports ANSI color codes in view content
+  - ConsumerGroupDetailViewModel follows same KafkaClient injection pattern as TopicsViewModel
+---
