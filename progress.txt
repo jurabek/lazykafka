@@ -365,3 +365,17 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - gocui v0.5.0 has an escape interpreter that supports ANSI color codes in view content
   - ConsumerGroupDetailViewModel follows same KafkaClient injection pattern as TopicsViewModel
 ---
+## Thu Feb 12 2026 - US-032
+- Added ShowFilterPopup, ApplyFilter, ClearFilter methods to MessageBrowserViewModel
+- Added pending filter state: pendingPartition, pendingOffsetMode, pendingLimit
+- Added offset mode constants (OffsetModeNewest, OffsetModeOldest) and conversion helpers
+- Added getters/setters for all pending filter fields with mutex protection
+- Added comprehensive unit tests with table-driven patterns and mock KafkaClient
+- Files changed: internal/tui/view_models/message_browser_view_model.go, internal/tui/view_models/message_browser_view_model_test.go
+- **Learnings for future iterations:**
+  - No testify/gomock in go.mod - use standard library testing only
+  - Mock KafkaClient inline in test files (no generated mocks available)
+  - MessageFilter.Offset -1 = newest, 0 = oldest; use string offsetMode for user-facing API
+  - Pending filter fields allow popup to edit without affecting current filter until Apply
+  - ClearFilter resets to defaults AND reloads messages immediately
+---

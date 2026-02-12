@@ -485,7 +485,7 @@
         "go build completes without errors"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

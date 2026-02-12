@@ -12,6 +12,11 @@ import (
 	"github.com/jurabek/lazykafka/internal/tui/types"
 )
 
+const (
+	OffsetModeNewest = "newest"
+	OffsetModeOldest = "oldest"
+)
+
 type MessageSelectedFunc func(msg *models.Message)
 
 type MessageBrowserViewModel struct {
@@ -20,6 +25,10 @@ type MessageBrowserViewModel struct {
 	selectedIndex     int
 	currentFilter     models.MessageFilter
 	currentTopic      string
+	filterPopupOpen   bool
+	pendingPartition  int
+	pendingOffsetMode string
+	pendingLimit      int
 	onChange          types.OnChangeFunc
 	commandBindings   []*types.CommandBinding
 	onMessageSelected MessageSelectedFunc
@@ -36,6 +45,9 @@ func NewMessageBrowserViewModel() *MessageBrowserViewModel {
 			Limit:     100,
 			Format:    "json",
 		},
+		pendingPartition:  -1,
+		pendingOffsetMode: OffsetModeNewest,
+		pendingLimit:      100,
 	}
 
 	moveUp := types.NewCommand(vm.MoveUp)
@@ -256,4 +268,108 @@ func (vm *MessageBrowserViewModel) GetFilter() models.MessageFilter {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 	return vm.currentFilter
+}
+
+func (vm *MessageBrowserViewModel) ShowFilterPopup() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	vm.filterPopupOpen = true
+	vm.pendingPartition = vm.currentFilter.Partition
+	vm.pendingLimit = vm.currentFilter.Limit
+	vm.pendingOffsetMode = offsetToMode(vm.currentFilter.Offset)
+}
+
+func (vm *MessageBrowserViewModel) IsFilterPopupOpen() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.filterPopupOpen
+}
+
+func (vm *MessageBrowserViewModel) CloseFilterPopup() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.filterPopupOpen = false
+}
+
+func (vm *MessageBrowserViewModel) ApplyFilter() {
+	vm.mu.Lock()
+	filter := models.MessageFilter{
+		Partition: vm.pendingPartition,
+		Offset:    modeToOffset(vm.pendingOffsetMode),
+		Limit:     vm.pendingLimit,
+		Format:    vm.currentFilter.Format,
+	}
+	vm.filterPopupOpen = false
+	vm.mu.Unlock()
+
+	vm.LoadMessages(filter)
+}
+
+func (vm *MessageBrowserViewModel) ClearFilter() {
+	vm.mu.Lock()
+	vm.pendingPartition = -1
+	vm.pendingOffsetMode = OffsetModeNewest
+	vm.pendingLimit = 100
+	vm.filterPopupOpen = false
+
+	filter := models.MessageFilter{
+		Partition: -1,
+		Offset:    -1,
+		Limit:     100,
+		Format:    vm.currentFilter.Format,
+	}
+	vm.mu.Unlock()
+
+	vm.LoadMessages(filter)
+}
+
+func (vm *MessageBrowserViewModel) SetPendingPartition(partition int) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.pendingPartition = partition
+}
+
+func (vm *MessageBrowserViewModel) GetPendingPartition() int {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.pendingPartition
+}
+
+func (vm *MessageBrowserViewModel) SetPendingOffsetMode(mode string) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.pendingOffsetMode = mode
+}
+
+func (vm *MessageBrowserViewModel) GetPendingOffsetMode() string {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.pendingOffsetMode
+}
+
+func (vm *MessageBrowserViewModel) SetPendingLimit(limit int) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.pendingLimit = limit
+}
+
+func (vm *MessageBrowserViewModel) GetPendingLimit() int {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.pendingLimit
+}
+
+func offsetToMode(offset int64) string {
+	if offset == 0 {
+		return OffsetModeOldest
+	}
+	return OffsetModeNewest
+}
+
+func modeToOffset(mode string) int64 {
+	if mode == OffsetModeOldest {
+		return 0
+	}
+	return -1
 }
