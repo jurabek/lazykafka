@@ -445,5 +445,31 @@ func (c *franzClient) UpdateTopicConfig(ctx context.Context, config models.Topic
 }
 
 func (c *franzClient) GetConsumerGroupOffsets(ctx context.Context, groupName string) ([]models.ConsumerGroupOffset, error) {
-	return nil, fmt.Errorf("not implemented")
+	described, err := c.admin.Lag(ctx, groupName)
+	if err != nil {
+		return nil, fmt.Errorf("fetching consumer group lag: %w", err)
+	}
+
+	groupLag, ok := described[groupName]
+	if !ok {
+		return nil, fmt.Errorf("consumer group %s not found", groupName)
+	}
+
+	if groupLag.Error() != nil {
+		return nil, fmt.Errorf("consumer group %s: %w", groupName, groupLag.Error())
+	}
+
+	var offsets []models.ConsumerGroupOffset
+	for topic, partitions := range groupLag.Lag {
+		for partition, memberLag := range partitions {
+			offsets = append(offsets, models.ConsumerGroupOffset{
+				Topic:     topic,
+				Partition: int(partition),
+				Offset:    memberLag.Commit.At,
+				Lag:       memberLag.Lag,
+			})
+		}
+	}
+
+	return offsets, nil
 }

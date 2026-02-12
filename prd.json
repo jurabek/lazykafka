@@ -441,7 +441,7 @@
         "Interface compiles without errors"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -456,7 +456,7 @@
         "go build completes without errors"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

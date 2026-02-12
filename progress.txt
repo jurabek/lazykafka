@@ -330,3 +330,22 @@ Started: Sun Feb  8 01:42:53 PM CET 2026
   - gocui.KeyCtrlD and gocui.KeyCtrlU are the constants for page down/up keybindings
   - BrokersView had existing Ctrl+d/Ctrl+u for view scrolling - now also has selection-based page navigation
 ---
+## Thu Feb 12 2026 - US-029
+- Interface method and model struct already existed from prior iteration
+- No code changes needed - marked as passing
+- Files changed: prd.json (passes: true)
+- **Learnings for future iterations:**
+  - Always check if interface methods/models already exist before implementing
+  - Previous iterations added stub implementations when extending interfaces
+---
+## Thu Feb 12 2026 - US-030
+- Implemented GetConsumerGroupOffsets using kadm.Lag() for combined offset+lag data
+- Iterates over GroupLag map (topic -> partition -> GroupMemberLag)
+- Returns ConsumerGroupOffset with Topic, Partition, Offset (commit position), and Lag
+- Files changed: internal/kafka/franz_client.go
+- **Learnings for future iterations:**
+  - kadm.Lag() returns DescribedGroupLags which combines describe, fetch offsets, and end offsets
+  - GroupLag is map[string]map[int32]GroupMemberLag (not a struct with Each method)
+  - DescribedGroupLag has Error() method that checks DescribeErr then FetchErr
+  - GroupMemberLag.Commit.At gives the committed offset, GroupMemberLag.Lag gives calculated lag
+---
