@@ -27,3 +27,4 @@ vendor/
 go.work
 lazykafka.log
 lazykafka
+.DS_Store
