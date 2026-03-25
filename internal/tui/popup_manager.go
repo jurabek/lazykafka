@@ -125,6 +125,11 @@ func (pm *PopupManager) ShowProduceMessagePopup(topic string) error {
 		return nil
 	}
 
+	// Debug
+	if pm.layout != nil {
+		pm.layout.SetStatusMessage("DEBUG: PopupManager.ShowProduceMessagePopup called for " + topic)
+	}
+
 	currentView := pm.gui.CurrentView()
 	if currentView != nil {
 		pm.previousView = currentView.Name()

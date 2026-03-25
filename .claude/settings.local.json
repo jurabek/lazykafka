@@ -7,7 +7,10 @@
       "Bash(find:*)",
       "Bash(go test:*)",
       "Bash(docker ps:*)",
-      "Bash(go doc:*)"
+      "Bash(go doc:*)",
+      "Bash(/usr/bin/tmux send-keys:*)",
+      "Bash(/usr/bin/tmux:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

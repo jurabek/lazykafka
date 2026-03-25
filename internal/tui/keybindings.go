@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jroimartin/gocui"
 	"github.com/jurabek/lazykafka/internal/models"
@@ -88,6 +89,19 @@ func (h *keyBindingHandler) SetupKeyBindings(g *gocui.Gui) error {
 func (h *keyBindingHandler) setupTopicDetailBindings(g *gocui.Gui) error {
 	viewName := "topic_detail"
 
+	// Debug: log current view
+	if err := g.SetKeybinding(viewName, 'z', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		currentView := g.CurrentView()
+		viewName2 := "nil"
+		if currentView != nil {
+			viewName2 = currentView.Name()
+		}
+		h.layout.SetStatusMessage("DEBUG: Current view is: " + viewName2)
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	if err := g.SetKeybinding(viewName, gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		h.layout.NextTab()
 		return nil
@@ -112,6 +126,34 @@ func (h *keyBindingHandler) setupTopicDetailBindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding(viewName, '3', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		h.layout.SetTab(2)
 		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Bind 'p' key to show produce message popup from topic_detail view too
+	if err := g.SetKeybinding(viewName, 'p', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return h.showProduceMessagePopup()
+	}); err != nil {
+		return err
+	}
+
+	// Bind 'n' key to show add topic popup from topic_detail view too
+	if err := g.SetKeybinding(viewName, 'n', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return h.showAddTopicPopup()
+	}); err != nil {
+		return err
+	}
+
+	// Bind 'd' key to delete topic from topic_detail view too
+	if err := g.SetKeybinding(viewName, 'd', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return h.showDeleteTopicConfirmation()
+	}); err != nil {
+		return err
+	}
+
+	// Bind 'e' key to edit topic config from topic_detail view too
+	if err := g.SetKeybinding(viewName, 'e', gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return h.showTopicConfig()
 	}); err != nil {
 		return err
 	}
@@ -191,6 +233,10 @@ func (h *keyBindingHandler) setupGlobalBindings(g *gocui.Gui) error {
 		if err := g.SetKeybinding(binding.ViewName, binding.Key, binding.Modifier, wrappedHandler); err != nil {
 			return err
 		}
+		// Debug: log the binding
+		if binding.Description == "produce message" {
+			slog.Info("Keybinding registered", "key", "'p'", "view", binding.ViewName, "description", binding.Description)
+		}
 	}
 	return nil
 }
@@ -207,6 +253,40 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Description:  "quit",
 			BlockOnPopup: false,
 		},
+		// Debug binding to check current view
+		{
+			ViewName:     "",
+			Key:          'z',
+			Modifier:     gocui.ModNone,
+			Handler: func() error {
+				currentView := h.layout.gui.CurrentView()
+				viewName := "nil"
+				if currentView != nil {
+					viewName = currentView.Name()
+				}
+				h.layout.SetStatusMessage("DEBUG: Current view is: " + viewName)
+				return nil
+			},
+			Description:  "debug current view",
+			BlockOnPopup: false,
+		},
+		{
+			ViewName:     panelBrokers,
+			Key:          'n',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showAddBrokerPopup,
+			Description:  "new broker",
+			BlockOnPopup: true,
+		},
+		// Make 'n', 'p', 'd', 'e' global for topics (they check if there's a selected topic)
+		{
+			ViewName:     "",
+			Key:          'p',
+			Modifier:     gocui.ModNone,
+			Handler:      h.showProduceMessagePopup,
+			Description:  "produce message",
+			BlockOnPopup: true,
+		},
 		{
 			ViewName:     panelBrokers,
 			Key:          'n',
@@ -221,14 +301,6 @@ func (h *keyBindingHandler) getGlobalBindings() []*types.Binding {
 			Modifier:     gocui.ModNone,
 			Handler:      h.showAddTopicPopup,
 			Description:  "new topic",
-			BlockOnPopup: true,
-		},
-		{
-			ViewName:     panelTopics,
-			Key:          'p',
-			Modifier:     gocui.ModNone,
-			Handler:      h.showProduceMessagePopup,
-			Description:  "produce message",
 			BlockOnPopup: true,
 		},
 		{
@@ -323,7 +395,21 @@ func (h *keyBindingHandler) showAddTopicPopup() error {
 }
 
 func (h *keyBindingHandler) showProduceMessagePopup() error {
+	// Debug current view
+	currentView := h.layout.gui.CurrentView()
+	viewName := ""
+	if currentView != nil {
+		viewName = currentView.Name()
+	}
+
+	// Only show popup if we're on topics or topic_detail view
+	if viewName != panelTopics && viewName != "topic_detail" {
+		return nil
+	}
+
+	h.layout.SetStatusMessage("DEBUG: showProduceMessagePopup called, current view: " + viewName)
 	if h.layout.IsPopupActive() {
+		h.layout.SetStatusMessage("DEBUG: Popup already active, returning")
 		return nil
 	}
 
@@ -333,10 +419,12 @@ func (h *keyBindingHandler) showProduceMessagePopup() error {
 	selectedTopic := topicsVM.GetSelectedTopic()
 
 	if selectedTopic == nil {
+		h.layout.SetStatusMessage("DEBUG: No topic selected")
 		h.layout.SetStatusMessage("No topic selected")
 		return nil
 	}
 
+	h.layout.SetStatusMessage("DEBUG: Showing produce message popup for " + selectedTopic.Name)
 	return h.layout.ShowProduceMessagePopup(selectedTopic.Name)
 }
 
